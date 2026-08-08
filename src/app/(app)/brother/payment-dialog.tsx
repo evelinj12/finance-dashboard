@@ -15,9 +15,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MoneyInput, emptyMoneyValue, moneyValueToIdr, type MoneyValue } from "@/components/money-input";
+import { MoneyInput, emptyMoneyValue, type MoneyValue } from "@/components/money-input";
 import { todayStr } from "@/lib/dates";
 import { addContractorPayment } from "./actions";
+
+const paymentStatuses = ["owed", "paid", "transferred", "unknown"] as const;
+
+type PaymentStatus = (typeof paymentStatuses)[number];
+
+function isPaymentStatus(value: string | null | undefined): value is PaymentStatus {
+  return paymentStatuses.includes(value as PaymentStatus);
+}
 
 interface RecentIncome {
   id: string;
@@ -31,29 +39,58 @@ export function PaymentDialog({ recentIncome }: { recentIncome: RecentIncome[] }
   const [saving, setSaving] = useState(false);
   const [date, setDate] = useState(todayStr());
   const [money, setMoney] = useState<MoneyValue>(emptyMoneyValue());
+  const [clientOrProject, setClientOrProject] = useState("");
+  const [workPeriod, setWorkPeriod] = useState("");
+  const [hours, setHours] = useState("");
+  const [status, setStatus] = useState<PaymentStatus>("paid");
+  const [paidAt, setPaidAt] = useState("");
   const [notes, setNotes] = useState("");
   const [relatedIncomeId, setRelatedIncomeId] = useState<string>("none");
   const router = useRouter();
 
   async function handleSave() {
-    if (!money.amount) {
-      toast.error("Amount is required");
+    const amount = Number(money.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Amount must be greater than zero");
       return;
     }
+
+    const fxRate = money.currency === "IDR" ? 1 : Number(money.fxRate);
+    if (!Number.isFinite(fxRate) || fxRate <= 0) {
+      toast.error("FX rate must be greater than zero");
+      return;
+    }
+
+    const parsedHours = Number(hours);
+    if (hours.trim() !== "" && (!Number.isFinite(parsedHours) || parsedHours < 0)) {
+      toast.error("Hours must be zero or greater");
+      return;
+    }
+    const normalizedHours = hours.trim() === "" ? null : parsedHours;
+
     setSaving(true);
     try {
       await addContractorPayment({
         date,
         payee: "Brother",
-        amount: Number(money.amount),
+        amount,
         currency: money.currency,
-        fx_rate: money.currency === "IDR" ? 1 : Number(money.fxRate) || 1,
-        amount_idr: moneyValueToIdr(money),
+        fx_rate: fxRate,
+        client_or_project: clientOrProject.trim() || null,
+        work_period: workPeriod.trim() || null,
+        hours: normalizedHours,
+        status,
+        paid_at: paidAt || null,
         related_income_transaction_id: relatedIncomeId === "none" ? null : relatedIncomeId,
         notes: notes || null,
       });
       toast.success("Payment logged");
       setMoney(emptyMoneyValue());
+      setClientOrProject("");
+      setWorkPeriod("");
+      setHours("");
+      setStatus("paid");
+      setPaidAt("");
       setNotes("");
       setRelatedIncomeId("none");
       setOpen(false);
@@ -68,7 +105,7 @@ export function PaymentDialog({ recentIncome }: { recentIncome: RecentIncome[] }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button size="sm">+ Log payment</Button>} />
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Log payment to brother</DialogTitle>
         </DialogHeader>
@@ -79,6 +116,61 @@ export function PaymentDialog({ recentIncome }: { recentIncome: RecentIncome[] }
           </div>
 
           <MoneyInput value={money} onChange={setMoney} />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label>Client / project</Label>
+              <Input
+                value={clientOrProject}
+                onChange={(e) => setClientOrProject(e.target.value)}
+                placeholder="Client or project"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Work period</Label>
+              <Input
+                value={workPeriod}
+                onChange={(e) => setWorkPeriod(e.target.value)}
+                placeholder="e.g. Jul 2026"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label>Hours</Label>
+              <Input
+                type="number"
+                step="any"
+                min="0"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Status</Label>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(isPaymentStatus(v) ? v : "unknown")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentStatuses.map((paymentStatus) => (
+                    <SelectItem key={paymentStatus} value={paymentStatus}>
+                      {paymentStatus}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Paid date</Label>
+              <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+            </div>
+          </div>
 
           <div className="flex flex-col gap-2">
             <Label>Related income (optional)</Label>

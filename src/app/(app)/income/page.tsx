@@ -10,12 +10,6 @@ import { AddSourceDialog } from "./add-source-dialog";
 import { IncomeDialog } from "./income-dialog";
 import { DeleteIncomeButton } from "./delete-income-button";
 
-const typeLabels: Record<string, string> = {
-  freelance_client: "Freelance client",
-  digital_product: "Digital product",
-  other: "Other",
-};
-
 export default async function IncomePage({
   searchParams,
 }: {
@@ -26,8 +20,12 @@ export default async function IncomePage({
   const [start, end] = monthRange(month);
 
   const supabase = await createClient();
-  const [{ data: sources }, { data: incomeTx }] = await Promise.all([
-    supabase.from("income_sources").select("id, name, type").eq("active", true).order("name"),
+  const [{ data: sources }, { data: incomeTx }, { data: summary }] = await Promise.all([
+    supabase
+      .from("income_sources")
+      .select("id, name, type, visible_in_active_breakdown")
+      .eq("active", true)
+      .order("name"),
     supabase
       .from("income_transactions")
       .select(
@@ -36,16 +34,17 @@ export default async function IncomePage({
       .gte("date", start)
       .lt("date", end)
       .order("date", { ascending: false }),
+    supabase.from("monthly_finance_summary").select("*").eq("month", month).maybeSingle(),
   ]);
 
   const sourceList = sources ?? [];
-
-  const totalsByType: Record<string, number> = { freelance_client: 0, digital_product: 0, other: 0 };
-  for (const t of incomeTx ?? []) {
-    const source = t.income_source as unknown as { type: string } | { type: string }[] | null;
-    const type = Array.isArray(source) ? source[0]?.type : source?.type;
-    if (type) totalsByType[type] = (totalsByType[type] ?? 0) + t.amount_idr;
-  }
+  const hiddenActiveClientIncomeIdr = summary?.active_hidden_income_idr ?? 0;
+  const inactiveHistoricalClientIncomeIdr = Math.max(
+    (summary?.freelance_client_income_idr ?? 0) -
+      (summary?.active_visible_income_idr ?? 0) -
+      hiddenActiveClientIncomeIdr,
+    0
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,18 +64,51 @@ export default async function IncomePage({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {Object.entries(typeLabels).map(([type, label]) => (
-          <Card key={type}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Money amountIdr={totalsByType[type] ?? 0} className="text-xl font-semibold" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Visible active clients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Money amountIdr={summary?.active_visible_income_idr ?? 0} className="text-xl font-semibold" />
+            <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+              <p>
+                Hidden active: <Money amountIdr={hiddenActiveClientIncomeIdr} />
+              </p>
+              <p>
+                Historical inactive: <Money amountIdr={inactiveHistoricalClientIncomeIdr} />
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Digital product</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Money amountIdr={summary?.digital_product_income_idr ?? 0} className="text-xl font-semibold" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Other</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Money amountIdr={summary?.other_income_idr ?? 0} className="text-xl font-semibold" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total income</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Money amountIdr={summary?.total_income_idr ?? 0} className="text-xl font-semibold" />
+          </CardContent>
+        </Card>
       </div>
+      <p className="text-sm text-muted-foreground">
+        Historical inactive clients remain included in total income, but are hidden from the active-client breakdown.
+      </p>
 
       <Card>
         <CardContent className="p-0">

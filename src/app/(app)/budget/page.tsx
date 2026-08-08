@@ -4,6 +4,7 @@ import { Money } from "@/components/money";
 import { MonthPicker } from "@/components/month-picker";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
+import { savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
 import { EditBudgetsDialog } from "./edit-budgets-dialog";
 
 const tagLabels: Record<string, string> = {
@@ -25,7 +26,7 @@ export default async function BudgetPage({
   const [start, end] = monthRange(month);
 
   const supabase = await createClient();
-  const [{ data: categories }, { data: budgets }, { data: transactions }, { data: sinkingFunds }] =
+  const [{ data: categories }, { data: budgets }, { data: transactions }, { data: sinkingFunds }, { data: summary }] =
     await Promise.all([
       supabase.from("categories").select("id, name, tag").eq("active", true).order("sort_order"),
       supabase.from("budgets").select("category_id, budget_amount").eq("month", month),
@@ -35,6 +36,11 @@ export default async function BudgetPage({
         .gte("date", start)
         .lt("date", end),
       supabase.from("sinking_funds").select("name, monthly_amount, due_date, rolling, notes").order("due_date"),
+      supabase
+        .from("monthly_finance_summary")
+        .select("*")
+        .eq("month", month)
+        .maybeSingle(),
     ]);
 
   const budgetByCategory = new Map((budgets ?? []).map((b) => [b.category_id, b.budget_amount]));
@@ -67,6 +73,37 @@ export default async function BudgetPage({
           />
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Saving Health</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Income</p>
+              <Money amountIdr={summary?.total_income_idr ?? 0} className="text-lg font-semibold" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">True expenses</p>
+              <Money amountIdr={summary?.true_expenses_idr ?? 0} className="text-lg font-semibold" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Sinking funds</p>
+              <Money amountIdr={summary?.sinking_funds_idr ?? 0} className="text-lg font-semibold" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Ratio</p>
+              <p className="text-lg font-semibold">
+                {savingHealthPercent(summary?.saving_health_ratio ?? 0)}
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            {savingHealthStatus(summary?.saving_health_ratio ?? 0)} · Target: more than 50%
+          </p>
+        </CardContent>
+      </Card>
 
       {grouped.map(({ tag, rows: tagRows }) => {
         if (tagRows.length === 0) return null;

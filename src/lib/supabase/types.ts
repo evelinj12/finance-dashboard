@@ -1,4 +1,4 @@
-// Hand-written to match supabase/migrations/0001_init.sql.
+// Hand-written to match supabase/migrations/.
 // Once the project is deployed, regenerate with:
 //   npx supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts
 
@@ -6,6 +6,8 @@ export type CategoryTag = "income" | "sinking_fund" | "fixed" | "spent";
 export type TxDirection = "in" | "out";
 export type EntrySource = "manual" | "import";
 export type IncomeSourceType = "freelance_client" | "digital_product" | "other";
+export type ContractorPaymentStatus = "owed" | "paid" | "transferred" | "unknown";
+export type NetWorthBreakdownQuality = "full" | "total_only";
 export type GoalType = "net_worth" | "income" | "savings";
 
 export interface Database {
@@ -19,6 +21,7 @@ export interface Database {
           notes: string | null;
           active: boolean;
           sort_order: number;
+          source_key: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["categories"]["Row"]> & {
@@ -26,6 +29,7 @@ export interface Database {
           tag: CategoryTag;
         };
         Update: Partial<Database["public"]["Tables"]["categories"]["Row"]>;
+        Relationships: [];
       };
       sinking_funds: {
         Row: {
@@ -42,6 +46,15 @@ export interface Database {
           name: string;
         };
         Update: Partial<Database["public"]["Tables"]["sinking_funds"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "sinking_funds_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       budgets: {
         Row: {
@@ -50,6 +63,8 @@ export interface Database {
           month: string;
           budget_amount: number;
           currency: string;
+          source_sheet: string | null;
+          source_row: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["budgets"]["Row"]> & {
@@ -57,6 +72,15 @@ export interface Database {
           month: string;
         };
         Update: Partial<Database["public"]["Tables"]["budgets"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "budgets_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       transactions: {
         Row: {
@@ -71,6 +95,8 @@ export interface Database {
           notes: string | null;
           save_to: string | null;
           source: EntrySource;
+          source_sheet: string | null;
+          source_row: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["transactions"]["Row"]> & {
@@ -81,6 +107,15 @@ export interface Database {
           amount_idr: number;
         };
         Update: Partial<Database["public"]["Tables"]["transactions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       income_sources: {
         Row: {
@@ -89,6 +124,8 @@ export interface Database {
           type: IncomeSourceType;
           notes: string | null;
           active: boolean;
+          source_key: string | null;
+          visible_in_active_breakdown: boolean;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["income_sources"]["Row"]> & {
@@ -96,6 +133,7 @@ export interface Database {
           type: IncomeSourceType;
         };
         Update: Partial<Database["public"]["Tables"]["income_sources"]["Row"]>;
+        Relationships: [];
       };
       income_transactions: {
         Row: {
@@ -109,6 +147,8 @@ export interface Database {
           amount_idr: number;
           status: string | null;
           source: EntrySource;
+          source_sheet: string | null;
+          source_row: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["income_transactions"]["Row"]> & {
@@ -118,6 +158,15 @@ export interface Database {
           amount_idr: number;
         };
         Update: Partial<Database["public"]["Tables"]["income_transactions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "income_transactions_income_source_id_fkey";
+            columns: ["income_source_id"];
+            isOneToOne: false;
+            referencedRelation: "income_sources";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       contractor_payments: {
         Row: {
@@ -129,6 +178,13 @@ export interface Database {
           fx_rate: number;
           amount_idr: number;
           related_income_transaction_id: string | null;
+          client_or_project: string | null;
+          work_period: string | null;
+          hours: number | null;
+          status: ContractorPaymentStatus;
+          paid_at: string | null;
+          source_sheet: string | null;
+          source_row: string | null;
           notes: string | null;
           created_at: string;
         };
@@ -138,11 +194,21 @@ export interface Database {
           amount_idr: number;
         };
         Update: Partial<Database["public"]["Tables"]["contractor_payments"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "contractor_payments_related_income_transaction_id_fkey";
+            columns: ["related_income_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "income_transactions";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       net_worth_snapshots: {
         Row: {
           id: string;
           month: string;
+          snapshot_date: string | null;
           cash: number;
           investments: number;
           retirement: number;
@@ -151,14 +217,35 @@ export interface Database {
           secured_liabilities: number;
           notes: string | null;
           created_at: string;
+          source_sheet: string | null;
+          source_row: string | null;
+          breakdown_quality: NetWorthBreakdownQuality;
           total_assets: number;
           total_liabilities: number;
           net_worth: number;
         };
-        Insert: Partial<Database["public"]["Tables"]["net_worth_snapshots"]["Row"]> & {
+        Insert: Partial<
+          Omit<
+            Database["public"]["Tables"]["net_worth_snapshots"]["Row"],
+            "total_assets" | "total_liabilities" | "net_worth"
+          >
+        > & {
           month: string;
+          total_assets?: never;
+          total_liabilities?: never;
+          net_worth?: never;
         };
-        Update: Partial<Database["public"]["Tables"]["net_worth_snapshots"]["Row"]>;
+        Update: Partial<
+          Omit<
+            Database["public"]["Tables"]["net_worth_snapshots"]["Row"],
+            "total_assets" | "total_liabilities" | "net_worth"
+          >
+        > & {
+          total_assets?: never;
+          total_liabilities?: never;
+          net_worth?: never;
+        };
+        Relationships: [];
       };
       goals: {
         Row: {
@@ -176,7 +263,39 @@ export interface Database {
           target_amount: number;
         };
         Update: Partial<Database["public"]["Tables"]["goals"]["Row"]>;
+        Relationships: [];
       };
     };
+    Views: {
+      monthly_finance_summary: {
+        Row: {
+          month: string;
+          total_income_idr: number;
+          active_income_idr: number;
+          inactive_income_idr: number;
+          active_visible_income_idr: number;
+          active_hidden_income_idr: number;
+          freelance_client_income_idr: number;
+          digital_product_income_idr: number;
+          other_income_idr: number;
+          category_income_actual_idr: number;
+          reconciliation_category_income_idr: number;
+          fixed_expenses_idr: number;
+          variable_spend_idr: number;
+          sinking_funds_idr: number;
+          income_budget_idr: number;
+          fixed_budget_idr: number;
+          variable_budget_idr: number;
+          sinking_budget_idr: number;
+          contractor_paid_idr: number;
+          contractor_owed_idr: number;
+          true_expenses_idr: number;
+          net_after_savings_idr: number;
+          saving_health_ratio: number;
+        };
+        Relationships: [];
+      };
+    };
+    Functions: Record<string, never>;
   };
 }
