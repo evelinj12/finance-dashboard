@@ -72,7 +72,7 @@ This is safe to re-run — it skips tables that already have imported rows.
 ## Finance rules
 
 - Saving health target is more than 50%.
-- Saving health is calculated as `(sinking funds + positive leftover net) / total income`.
+- Saving health is calculated from savings covered by the month's income: `min(sinking funds + positive leftover net, income - true expenses) / total income`, floored at zero.
 - Income comes from `income_transactions`, not the expense workbook income cells.
 - Inactive clients remain included in historical totals but are hidden from active-client breakdowns.
 - Kevin payouts come from `Punya Kev` and can be marked owed, paid, transferred, or unknown.

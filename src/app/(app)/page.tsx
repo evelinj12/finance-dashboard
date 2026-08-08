@@ -103,7 +103,7 @@ export default async function OverviewPage() {
           <CardContent>
             <p className="text-2xl font-semibold">{savingHealthPercent(savingHealthRatio)}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {savingHealthStatus(savingHealthRatio)} · Target: more than 50%
+              {savingHealthStatus(savingHealthRatio, summary?.net_after_savings_idr ?? 0)} · Target: more than 50%
             </p>
           </CardContent>
         </Card>

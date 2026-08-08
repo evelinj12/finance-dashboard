@@ -44,7 +44,7 @@ export default async function SavingHealthPage() {
             <TableBody>
               {(summaries ?? []).map((row) => {
                 const progressValue = Math.min(100, Math.max(0, row.saving_health_ratio * 100));
-                const status = savingHealthStatus(row.saving_health_ratio);
+                const status = savingHealthStatus(row.saving_health_ratio, row.net_after_savings_idr);
 
                 return (
                   <TableRow key={row.month}>

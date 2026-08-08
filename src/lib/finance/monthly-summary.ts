@@ -15,8 +15,13 @@ export function calculateSavingHealth(
 ): SavingHealthResult {
   const netAfterSavingsIdr =
     input.totalIncomeIdr - input.trueExpensesIdr - input.sinkingFundsIdr;
+  const incomeAfterTrueExpensesIdr =
+    input.totalIncomeIdr - input.trueExpensesIdr;
   const savedAmountIdr =
-    input.sinkingFundsIdr + Math.max(netAfterSavingsIdr, 0);
+    Math.max(0, Math.min(
+      input.sinkingFundsIdr + Math.max(netAfterSavingsIdr, 0),
+      incomeAfterTrueExpensesIdr,
+    ));
 
   return {
     netAfterSavingsIdr,
@@ -26,8 +31,11 @@ export function calculateSavingHealth(
   };
 }
 
-export function savingHealthStatus(ratio: number): "On target" | "Below target" {
-  return ratio > 0.5 ? "On target" : "Below target";
+export function savingHealthStatus(
+  ratio: number,
+  netAfterSavingsIdr = 0,
+): "On target" | "Below target" {
+  return ratio > 0.5 && netAfterSavingsIdr >= 0 ? "On target" : "Below target";
 }
 
 export function savingHealthPercent(ratio: number): string {

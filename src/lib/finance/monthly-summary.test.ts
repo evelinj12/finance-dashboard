@@ -23,7 +23,7 @@ describe("calculateSavingHealth", () => {
     );
   });
 
-  it("excludes negative leftover net from saved amount", () => {
+  it("only counts savings covered by income after true expenses", () => {
     assert.deepEqual(
       calculateSavingHealth({
         totalIncomeIdr: 10_000_000,
@@ -32,8 +32,23 @@ describe("calculateSavingHealth", () => {
       }),
       {
         netAfterSavingsIdr: -2_000_000,
-        savedAmountIdr: 4_000_000,
-        savingHealthRatio: 0.4,
+        savedAmountIdr: 2_000_000,
+        savingHealthRatio: 0.2,
+      },
+    );
+  });
+
+  it("does not report impossible savings when expenses already exceed income", () => {
+    assert.deepEqual(
+      calculateSavingHealth({
+        totalIncomeIdr: 414_001,
+        trueExpensesIdr: 2_983_304,
+        sinkingFundsIdr: 4_505_654,
+      }),
+      {
+        netAfterSavingsIdr: -7_074_957,
+        savedAmountIdr: 0,
+        savingHealthRatio: 0,
       },
     );
   });
@@ -55,6 +70,10 @@ describe("savingHealthStatus", () => {
     assert.equal(savingHealthStatus(0.51), "On target");
     assert.equal(savingHealthStatus(0.5), "Below target");
     assert.equal(savingHealthStatus(0.2), "Below target");
+  });
+
+  it("reports below target when the month is negative after savings", () => {
+    assert.equal(savingHealthStatus(10.88, -7_074_957), "Below target");
   });
 });
 

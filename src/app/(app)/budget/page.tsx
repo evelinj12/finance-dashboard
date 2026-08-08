@@ -4,7 +4,9 @@ import { Money } from "@/components/money";
 import { MonthPicker } from "@/components/month-picker";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
-import { savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
+import { budgetActualFromTransaction, budgetDifference } from "@/lib/finance/budget-summary";
+import { calculateSavingHealth, savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
+import type { CategoryTag } from "@/lib/supabase/types";
 import { EditBudgetsDialog } from "./edit-budgets-dialog";
 
 const tagLabels: Record<string, string> = {
@@ -14,7 +16,7 @@ const tagLabels: Record<string, string> = {
   spent: "Variable Spending",
 };
 
-const tagOrder = ["income", "sinking_fund", "fixed", "spent"];
+const tagOrder: CategoryTag[] = ["income", "sinking_fund", "fixed", "spent"];
 
 export default async function BudgetPage({
   searchParams,
@@ -44,10 +46,13 @@ export default async function BudgetPage({
     ]);
 
   const budgetByCategory = new Map((budgets ?? []).map((b) => [b.category_id, b.budget_amount]));
+  const tagByCategory = new Map((categories ?? []).map((c) => [c.id, c.tag as CategoryTag]));
   const actualByCategory = new Map<string, number>();
   for (const t of transactions ?? []) {
-    const signed = t.direction === "in" ? t.amount_idr : -t.amount_idr;
-    actualByCategory.set(t.category_id, (actualByCategory.get(t.category_id) ?? 0) + signed);
+    const tag = tagByCategory.get(t.category_id);
+    if (!tag) continue;
+    const actual = budgetActualFromTransaction(tag, t.direction, t.amount_idr);
+    actualByCategory.set(t.category_id, (actualByCategory.get(t.category_id) ?? 0) + actual);
   }
 
   const rows = (categories ?? []).map((c) => ({
@@ -60,6 +65,13 @@ export default async function BudgetPage({
     tag,
     rows: rows.filter((r) => r.tag === tag),
   }));
+  const savingHealth = summary
+    ? calculateSavingHealth({
+        totalIncomeIdr: summary.total_income_idr,
+        trueExpensesIdr: summary.true_expenses_idr,
+        sinkingFundsIdr: summary.sinking_funds_idr,
+      })
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -95,12 +107,15 @@ export default async function BudgetPage({
             <div>
               <p className="text-sm text-muted-foreground">Ratio</p>
               <p className="text-lg font-semibold">
-                {savingHealthPercent(summary?.saving_health_ratio ?? 0)}
+                {savingHealthPercent(savingHealth?.savingHealthRatio ?? 0)}
               </p>
             </div>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            {savingHealthStatus(summary?.saving_health_ratio ?? 0)} · Target: more than 50%
+            {savingHealthStatus(
+              savingHealth?.savingHealthRatio ?? 0,
+              savingHealth?.netAfterSavingsIdr ?? 0,
+            )} · Target: more than 50%
           </p>
         </CardContent>
       </Card>
@@ -126,7 +141,7 @@ export default async function BudgetPage({
                 </TableHeader>
                 <TableBody>
                   {tagRows.map((r) => {
-                    const diff = tag === "income" ? r.actual - r.budget : r.budget - r.actual;
+                    const diff = budgetDifference(tag, r.budget, r.actual);
                     return (
                       <TableRow key={r.id}>
                         <TableCell>{r.name}</TableCell>
@@ -152,7 +167,7 @@ export default async function BudgetPage({
                     </TableCell>
                     <TableCell className="text-right">
                       <Money
-                        amountIdr={tag === "income" ? totalActual - totalBudget : totalBudget - totalActual}
+                        amountIdr={budgetDifference(tag, totalBudget, totalActual)}
                         signed
                       />
                     </TableCell>
