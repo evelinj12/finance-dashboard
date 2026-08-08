@@ -36,6 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# historical data parsed from personal Google Sheets -- contains real
+# amounts, buyer emails, and names. Kept local-only, never pushed.
+/supabase/seed-data/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
