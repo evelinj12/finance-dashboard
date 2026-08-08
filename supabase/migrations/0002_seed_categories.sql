@@ -42,22 +42,22 @@ insert into categories (name, tag, sort_order) values
 
 -- Sinking fund schedule, matching amounts/due dates from the source sheet.
 insert into sinking_funds (category_id, name, monthly_amount, due_date, rolling, notes)
-select id, 'Rent', 2000000, '2027-02-01', false, 'Due Feb 2027'
+select id, 'Rent', 2000000, '2027-02-01'::date, false, 'Due Feb 2027'
 from categories where name = 'Rent' and tag = 'sinking_fund'
 union all
-select id, 'Life insurance', 572000, '2026-06-01', false, 'Due Jun 2026'
+select id, 'Life insurance', 572000, '2026-06-01'::date, false, 'Due Jun 2026'
 from categories where name = 'Life insurance' and tag = 'sinking_fund'
 union all
-select id, 'Tax (PPh)', 233654, '2027-03-01', false, 'Due Mar 2027'
+select id, 'Tax (PPh)', 233654, '2027-03-01'::date, false, 'Due Mar 2027'
 from categories where name = 'Tax' and tag = 'sinking_fund'
 union all
-select id, 'Travel', 1300000, null, true, 'Rolling, draw when traveling'
+select id, 'Travel', 1300000, null::date, true, 'Rolling, draw when traveling'
 from categories where name = 'Travel' and tag = 'sinking_fund'
 union all
-select id, 'Entertainment', 300000, null, true, 'Rolling, move to mutual fund if unused'
+select id, 'Entertainment', 300000, null::date, true, 'Rolling, move to mutual fund if unused'
 from categories where name = 'Entertainment' and tag = 'sinking_fund'
 union all
-select id, 'STNK', 100000, '2026-04-01', false, 'Due Apr 2026'
+select id, 'STNK', 100000, '2026-04-01'::date, false, 'Due Apr 2026'
 from categories where name = 'Transport' and tag = 'sinking_fund';
 
 -- Income source seeds -- clients get added via the migration import script
