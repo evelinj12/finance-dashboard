@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local brainstorming mockups
+.superpowers/
+
 # historical data parsed from personal Google Sheets -- contains real
 # amounts, buyer emails, and names. Kept local-only, never pushed.
 /supabase/seed-data/
