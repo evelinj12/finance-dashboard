@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 import { DEFAULT_USD_IDR_RATE, type DisplayCurrency } from "@/lib/currency";
 
 interface CurrencyContextValue {
@@ -15,25 +15,42 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 const STORAGE_KEY = "finance-dashboard:display-currency";
 const RATE_STORAGE_KEY = "finance-dashboard:usd-idr-rate";
 
-export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [currency, setCurrencyState] = useState<DisplayCurrency>("IDR");
-  const [usdIdrRate, setUsdIdrRateState] = useState<number>(DEFAULT_USD_IDR_RATE);
+function subscribeToLocalStorage(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+}
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "IDR" || stored === "USD") setCurrencyState(stored);
-    const storedRate = window.localStorage.getItem(RATE_STORAGE_KEY);
-    if (storedRate) setUsdIdrRateState(Number(storedRate));
-  }, []);
+function getStoredCurrency(): DisplayCurrency {
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  return stored === "IDR" || stored === "USD" ? stored : "IDR";
+}
+
+function getStoredUsdIdrRate(): number {
+  const storedRate = window.localStorage.getItem(RATE_STORAGE_KEY);
+  const parsedRate = storedRate ? Number(storedRate) : DEFAULT_USD_IDR_RATE;
+  return Number.isFinite(parsedRate) && parsedRate > 0 ? parsedRate : DEFAULT_USD_IDR_RATE;
+}
+
+export function CurrencyProvider({ children }: { children: React.ReactNode }) {
+  const currency = useSyncExternalStore<DisplayCurrency>(
+    subscribeToLocalStorage,
+    getStoredCurrency,
+    () => "IDR"
+  );
+  const usdIdrRate = useSyncExternalStore(
+    subscribeToLocalStorage,
+    getStoredUsdIdrRate,
+    () => DEFAULT_USD_IDR_RATE
+  );
 
   function setCurrency(c: DisplayCurrency) {
-    setCurrencyState(c);
     window.localStorage.setItem(STORAGE_KEY, c);
+    window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }));
   }
 
   function setUsdIdrRate(r: number) {
-    setUsdIdrRateState(r);
     window.localStorage.setItem(RATE_STORAGE_KEY, String(r));
+    window.dispatchEvent(new StorageEvent("storage", { key: RATE_STORAGE_KEY }));
   }
 
   return (

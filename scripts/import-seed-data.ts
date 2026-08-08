@@ -73,6 +73,34 @@ interface DigitalProductRow {
   status: string;
 }
 
+const ACTIVE_FREELANCE_SOURCES = [
+  {
+    canonicalName: "Agent EA",
+    sourceKey: "agent_ea",
+    aliases: ["agent ea", "agentea", "client 6 (since jan 2025)"],
+  },
+  {
+    canonicalName: "Erica - BCC",
+    sourceKey: "erica_bcc",
+    aliases: ["bbc", "erica - bcc", "client 7 (since jun 2025)"],
+  },
+  {
+    canonicalName: "JML Media",
+    sourceKey: "jml_media",
+    aliases: ["jml", "jml media", "client 8 (since jun 2026)"],
+  },
+  {
+    canonicalName: "Jasper",
+    sourceKey: "jasper",
+    aliases: ["jasper", "client 11 (since jan 2024)"],
+  },
+  {
+    canonicalName: "Z PD",
+    sourceKey: "z_pd",
+    aliases: ["z pd", "zpd", "client 13 (since jan 2024)"],
+  },
+] as const;
+
 async function importNetWorth(client: Client) {
   const rows = loadJson<NetWorthRow[]>("net_worth.json");
   for (const r of rows) {
@@ -139,22 +167,54 @@ async function importBudgets(client: Client, catMap: Map<string, string>) {
   console.log(`budgets: upserted ${upserted}`);
 }
 
+async function applyActiveFreelanceWhitelist(client: Client) {
+  await client.query(
+    `update income_sources
+     set active = false,
+         visible_in_active_breakdown = false
+     where type = 'freelance_client'`
+  );
+
+  for (const source of ACTIVE_FREELANCE_SOURCES) {
+    await client.query(
+      `update income_sources
+       set name = $1,
+           source_key = $2,
+           active = true,
+           visible_in_active_breakdown = true
+       where type = 'freelance_client'
+         and lower(name) = any($3::text[])`,
+      [source.canonicalName, source.sourceKey, source.aliases]
+    );
+  }
+
+  console.log(`freelance clients: active breakdown limited to ${ACTIVE_FREELANCE_SOURCES.length} current clients`);
+}
+
+function sourceNameAfterWhitelist(name: string) {
+  const normalized = name.trim().toLowerCase();
+  return ACTIVE_FREELANCE_SOURCES.find((source) => source.aliases.some((alias) => alias === normalized))?.canonicalName ?? name;
+}
+
 async function importFreelanceIncome(client: Client) {
   const sources = loadJson<FreelanceSourceRow[]>("freelance_sources.json");
   const income = loadJson<FreelanceIncomeRow[]>("freelance_income.json");
 
   const { rows: existing } = await client.query("select id, name from income_sources where type = 'freelance_client'");
-  const existingNames = new Set(existing.map((s) => s.name));
+  const existingNames = new Set(existing.map((s) => s.name.trim().toLowerCase()));
 
   for (const s of sources) {
-    if (!existingNames.has(s.name)) {
+    const possibleNames = [s.name, sourceNameAfterWhitelist(s.name)].map((name) => name.trim().toLowerCase());
+    if (!possibleNames.some((name) => existingNames.has(name))) {
       await client.query("insert into income_sources (name, type) values ($1, 'freelance_client')", [s.name]);
     }
   }
 
+  await applyActiveFreelanceWhitelist(client);
+
   const { rows: allSources } = await client.query("select id, name from income_sources where type = 'freelance_client'");
   const nameToId = new Map(allSources.map((s) => [s.name, s.id]));
-  const indexToId = new Map(sources.map((s, i) => [i + 1, nameToId.get(s.name)]));
+  const indexToId = new Map(sources.map((s, i) => [i + 1, nameToId.get(sourceNameAfterWhitelist(s.name))]));
 
   let inserted = 0;
   for (const r of income) {
@@ -210,6 +270,7 @@ async function main() {
     const { rows: countRows } = await client.query("select count(*) from income_transactions where source = 'import'");
     if (Number(countRows[0].count) > 0) {
       console.log(`income transactions: ${countRows[0].count} already imported, skipping (covers freelance + digital products)`);
+      await applyActiveFreelanceWhitelist(client);
     } else {
       await importFreelanceIncome(client);
       await importDigitalProducts(client);

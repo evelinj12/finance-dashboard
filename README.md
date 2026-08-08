@@ -4,9 +4,9 @@ A private budget, income, and net worth dashboard, replacing four separate Googl
 
 ## What's here
 
-- `src/app/(app)/` — the seven pages: Overview, Budget, Transactions, Income, Brother Payments, Net Worth, Settings
+- `src/app/(app)/` — the app pages: Overview, Budget, Transactions, Income, Brother Payments, Net Worth, Saving Health, Exports, Settings
 - `src/app/login/` — sign-in page (Supabase email/password auth, single user)
-- `supabase/migrations/` — database schema (`0001_init.sql`) and category/sinking-fund seed data (`0002_seed_categories.sql`)
+- `supabase/migrations/` — database schema and repair migrations, run in filename order
 - `supabase/seed-data/` — historical data parsed from the original Google Sheets, ready to import
 - `scripts/import-seed-data.ts` — one-time script that loads `supabase/seed-data/*.json` into Supabase
 
@@ -23,19 +23,24 @@ You'll need three free accounts — I can't create these for you:
 ### 2. Create the Supabase project
 
 1. In Supabase, create a new project (pick any region close to you).
-2. Once it's up, go to **SQL Editor** and run the contents of `supabase/migrations/0001_init.sql`, then `0002_seed_categories.sql`, in that order.
-3. Go to **Authentication → Users** and manually add yourself as a user (email + password) — this is the one account the app will support signing in as.
-4. Go to **Project Settings → API** and copy:
+2. Once it's up, copy the Supabase Postgres connection string from **Project Settings → Database**.
+3. Run all SQL files in `supabase/migrations/` in filename order:
+   ```bash
+   DATABASE_URL="your-postgres-connection-string" npx tsx scripts/run-migrations.ts
+   ```
+   You can also paste each migration into the Supabase SQL Editor manually, as long as you run every file in order.
+4. Go to **Authentication → Users** and manually add yourself as a user (email + password) — this is the one account the app will support signing in as.
+5. Go to **Project Settings → API** and copy:
    - Project URL
    - `anon` `public` key
-   - `service_role` key (only needed for the one-time data import below — keep this one secret, never put it in the app itself)
 
 ### 3. Configure environment variables
 
-Copy `.env.local.example` to `.env.local` and fill in the Project URL and anon key:
+Create `.env.local` and fill in the Project URL and anon key:
 
 ```bash
-cp .env.local.example .env.local
+NEXT_PUBLIC_SUPABASE_URL="your-project-url"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-public-key"
 ```
 
 ### 4. Run it locally
@@ -52,16 +57,26 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with the user yo
 `supabase/seed-data/` already contains your budget, income, and net worth history, parsed from the original sheets. To load it in:
 
 ```bash
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key npm run migrate
+DATABASE_URL="your-postgres-connection-string" npm run migrate
 ```
 
 This is safe to re-run — it skips tables that already have imported rows.
 
 **Known limitations of the import**, worth knowing about:
-- The Google Sheets connector doesn't preserve tab names, so your 13 freelance clients were imported as "Client 1 (since Nov 2023)" through "Client 13" — rename them to real names in the Income page once you're in.
+- The Google Sheets connector doesn't preserve every tab name, so older inactive freelance clients may still appear as "Client 1 (since Nov 2023)" style historical sources.
+- The active-client breakdown is automatically limited to Agent EA, Erica - BCC, Jasper, JML Media, and Z PD. Older clients stay in historical totals but are hidden from the active-client view.
 - Historical net worth snapshots (before May 2026) only have a total, not a cash/investments breakdown — they're filed under "investments" as a placeholder so the trend line stays accurate.
 - Expense transactions don't have exact days in the source sheet (just a monthly log), so imported transactions are all dated the 1st of their month.
 - The old "Potong/Tambah" petty-cash ledger (before your current Transaction Log system) wasn't imported — it was a narrow-scope reimbursement tracker, not full expense data, and is superseded by your current system anyway.
+
+## Finance rules
+
+- Saving health target is more than 50%.
+- Saving health is calculated as `(sinking funds + positive leftover net) / total income`.
+- Income comes from `income_transactions`, not the expense workbook income cells.
+- Inactive clients remain included in historical totals but are hidden from active-client breakdowns.
+- Kevin payouts come from `Punya Kev` and can be marked owed, paid, transferred, or unknown.
+- CSV exports are available from the Exports page for authenticated users.
 
 ## Deploying
 

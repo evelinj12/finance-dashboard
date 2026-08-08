@@ -5,41 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Money } from "@/components/money";
 import { NetWorthTrendChart } from "@/components/net-worth-trend-chart";
 import { createClient } from "@/lib/supabase/server";
-import { formatMonthLabel, monthRange, monthStart } from "@/lib/dates";
+import { formatMonthLabel, monthStart } from "@/lib/dates";
+import { savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
 
 export default async function OverviewPage() {
   const supabase = await createClient();
   const month = monthStart();
-  const [start, end] = monthRange(month);
   const currentYear = new Date().getFullYear();
 
   const [
-    { data: categories },
-    { data: budgets },
-    { data: transactions },
-    { data: incomeTx },
-    { data: contractorPayments },
+    { data: summary },
     { data: netWorthHistory },
     { data: goal },
     { data: sinkingFunds },
   ] = await Promise.all([
-    supabase.from("categories").select("id, name, tag"),
-    supabase.from("budgets").select("category_id, budget_amount").eq("month", month),
     supabase
-      .from("transactions")
-      .select("category_id, direction, amount_idr")
-      .gte("date", start)
-      .lt("date", end),
-    supabase
-      .from("income_transactions")
-      .select("amount_idr, income_source:income_sources(type)")
-      .gte("date", start)
-      .lt("date", end),
-    supabase
-      .from("contractor_payments")
-      .select("amount_idr")
-      .gte("date", start)
-      .lt("date", end),
+      .from("monthly_finance_summary")
+      .select("*")
+      .eq("month", month)
+      .maybeSingle(),
     supabase
       .from("net_worth_snapshots")
       .select("month, net_worth")
@@ -54,47 +38,22 @@ export default async function OverviewPage() {
       .limit(4),
   ]);
 
-  const categoryTagById = new Map((categories ?? []).map((c) => [c.id, c.tag]));
-
-  const actualByTag = { income: 0, sinking_fund: 0, fixed: 0, spent: 0 } as Record<string, number>;
-  for (const t of transactions ?? []) {
-    const tag = categoryTagById.get(t.category_id);
-    if (!tag) continue;
-    const signed = t.direction === "in" ? t.amount_idr : -t.amount_idr;
-    actualByTag[tag] = (actualByTag[tag] ?? 0) + signed;
-  }
-
-  const budgetByTag = { income: 0, sinking_fund: 0, fixed: 0, spent: 0 } as Record<string, number>;
-  for (const b of budgets ?? []) {
-    const tag = categoryTagById.get(b.category_id);
-    if (!tag) continue;
-    budgetByTag[tag] = (budgetByTag[tag] ?? 0) + b.budget_amount;
-  }
-
-  const incomeActual = actualByTag.income;
-  const fixedActual = actualByTag.fixed;
-  const spentActual = actualByTag.spent;
-  const savingsRatio = incomeActual > 0 ? (incomeActual - fixedActual - spentActual) / incomeActual : 0;
-
-  const incomeBySourceType = { freelance_client: 0, digital_product: 0, other: 0 } as Record<
-    string,
-    number
-  >;
-  for (const row of incomeTx ?? []) {
-    const source = row.income_source as unknown as { type: string } | { type: string }[] | null;
-    const type = Array.isArray(source) ? source[0]?.type : source?.type;
-    if (!type) continue;
-    incomeBySourceType[type] = (incomeBySourceType[type] ?? 0) + row.amount_idr;
-  }
-
-  const brotherPaidThisMonth = (contractorPayments ?? []).reduce((sum, p) => sum + p.amount_idr, 0);
+  const incomeActual = summary?.total_income_idr ?? 0;
+  const incomeBudget = summary?.income_budget_idr ?? 0;
+  const trueExpensesActual = summary?.true_expenses_idr ?? 0;
+  const trueExpensesBudget = (summary?.fixed_budget_idr ?? 0) + (summary?.variable_budget_idr ?? 0);
+  const savingHealthRatio = summary?.saving_health_ratio ?? 0;
+  const contractorPaidThisMonth = summary?.contractor_paid_idr ?? 0;
+  const contractorOwedThisMonth = summary?.contractor_owed_idr ?? 0;
+  const incomeBySourceType = {
+    freelance_client: summary?.freelance_client_income_idr ?? 0,
+    digital_product: summary?.digital_product_income_idr ?? 0,
+    other: summary?.other_income_idr ?? 0,
+  };
 
   const latestNetWorth = netWorthHistory?.[netWorthHistory.length - 1]?.net_worth ?? 0;
   const goalTarget = goal?.target_amount ?? 0;
   const goalProgressPct = goalTarget > 0 ? Math.min(100, Math.max(0, (latestNetWorth / goalTarget) * 100)) : 0;
-
-  const savingsRatioLabel =
-    savingsRatio >= 0.3 ? "Healthy" : savingsRatio >= 0.15 ? "Watch it" : "Below target";
 
   return (
     <div className="flex flex-col gap-6">
@@ -110,13 +69,13 @@ export default async function OverviewPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Income this month
+              Income month-to-date
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Money amountIdr={incomeActual} className="text-2xl font-semibold" />
             <p className="text-xs text-muted-foreground mt-1">
-              Budget <Money amountIdr={budgetByTag.income} />
+              Budget <Money amountIdr={incomeBudget} />
             </p>
           </CardContent>
         </Card>
@@ -124,13 +83,13 @@ export default async function OverviewPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Fixed + Spent
+              True expenses
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Money amountIdr={fixedActual + spentActual} className="text-2xl font-semibold" />
+            <Money amountIdr={trueExpensesActual} className="text-2xl font-semibold" />
             <p className="text-xs text-muted-foreground mt-1">
-              Budget <Money amountIdr={budgetByTag.fixed + budgetByTag.spent} />
+              Budget <Money amountIdr={trueExpensesBudget} />
             </p>
           </CardContent>
         </Card>
@@ -138,24 +97,27 @@ export default async function OverviewPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Savings ratio
+              Saving health
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">{(savingsRatio * 100).toFixed(0)}%</p>
-            <p className="text-xs text-muted-foreground mt-1">{savingsRatioLabel}</p>
+            <p className="text-2xl font-semibold">{savingHealthPercent(savingHealthRatio)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {savingHealthStatus(savingHealthRatio)} · Target: more than 50%
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Paid to brother
+              Kevin payouts
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Money amountIdr={brotherPaidThisMonth} className="text-2xl font-semibold" />
+            <Money amountIdr={contractorPaidThisMonth} className="text-2xl font-semibold" />
             <p className="text-xs text-muted-foreground mt-1">
+              Owed <Money amountIdr={contractorOwedThisMonth} /> ·{" "}
               <Link href="/brother" className="underline underline-offset-2">
                 View log
               </Link>
