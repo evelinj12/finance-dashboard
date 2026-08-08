@@ -4,19 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const links = [
-  { href: "/", label: "Overview" },
-  { href: "/budget", label: "Budget" },
-  { href: "/saving-health", label: "Saving Health" },
-  { href: "/transactions", label: "Transactions" },
-  { href: "/income", label: "Income" },
-  { href: "/brother", label: "Brother" },
-  { href: "/networth", label: "Net Worth" },
-  { href: "/exports", label: "Exports" },
-  { href: "/settings", label: "Settings" },
-];
+export interface NavLink {
+  id: string;
+  href: string;
+  label: string;
+}
 
-export function Nav() {
+export function Nav({ links }: { links: NavLink[] }) {
   const pathname = usePathname();
 
   return (
@@ -25,7 +19,7 @@ export function Nav() {
         const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
         return (
           <Link
-            key={link.href}
+            key={link.id}
             href={link.href}
             className={cn(
               "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",

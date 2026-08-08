@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { CurrencyToggle } from "@/components/currency-toggle";
-import { Nav } from "@/components/nav";
+import { NavShell } from "@/components/nav-shell";
 import { signOut } from "@/app/login/actions";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </form>
             </div>
           </div>
-          <Nav />
+          <NavShell />
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>

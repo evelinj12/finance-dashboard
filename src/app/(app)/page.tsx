@@ -20,7 +20,7 @@ export default async function OverviewPage() {
     { data: sinkingFunds },
   ] = await Promise.all([
     supabase
-      .from("monthly_finance_summary_v2")
+      .from("monthly_finance_summary_v3")
       .select("*")
       .eq("month", month)
       .maybeSingle(),
@@ -43,8 +43,9 @@ export default async function OverviewPage() {
   const trueExpensesActual = summary?.true_expenses_idr ?? 0;
   const trueExpensesBudget = (summary?.fixed_budget_idr ?? 0) + (summary?.variable_budget_idr ?? 0);
   const savingHealthRatio = summary?.saving_health_ratio ?? 0;
-  const contractorPaidThisMonth = summary?.contractor_paid_idr ?? 0;
-  const contractorOwedThisMonth = summary?.contractor_owed_idr ?? 0;
+  const teamPaidThisMonth = summary?.team_paid_idr ?? 0;
+  const teamOwedThisMonth = summary?.team_owed_idr ?? 0;
+  const teamTotalThisMonth = summary?.team_total_idr ?? 0;
   const incomeBySourceType = {
     freelance_client: summary?.freelance_client_income_idr ?? 0,
     digital_product: summary?.digital_product_income_idr ?? 0,
@@ -111,15 +112,15 @@ export default async function OverviewPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Kevin payouts
+              Team payouts
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Money amountIdr={contractorPaidThisMonth} className="text-2xl font-semibold" />
+            <Money amountIdr={teamTotalThisMonth} className="text-2xl font-semibold" />
             <p className="text-xs text-muted-foreground mt-1">
-              Owed <Money amountIdr={contractorOwedThisMonth} /> ·{" "}
-              <Link href="/brother" className="underline underline-offset-2">
-                View log
+              Paid <Money amountIdr={teamPaidThisMonth} /> · Owed <Money amountIdr={teamOwedThisMonth} /> ·{" "}
+              <Link href="/team" className="underline underline-offset-2">
+                View team
               </Link>
             </p>
           </CardContent>
