@@ -10,6 +10,8 @@ export interface SavingHealthResult {
   savingHealthRatio: number;
 }
 
+export type SavingHealthStatus = "On target" | "Below target" | "Unidentified";
+
 export function calculateSavingHealth(
   input: SavingHealthInput,
 ): SavingHealthResult {
@@ -34,7 +36,10 @@ export function calculateSavingHealth(
 export function savingHealthStatus(
   ratio: number,
   netAfterSavingsIdr = 0,
-): "On target" | "Below target" {
+  identified = true,
+): SavingHealthStatus {
+  if (!identified) return "Unidentified";
+
   return ratio > 0.5 && netAfterSavingsIdr >= 0 ? "On target" : "Below target";
 }
 

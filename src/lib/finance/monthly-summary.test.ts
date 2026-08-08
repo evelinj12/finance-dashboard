@@ -75,6 +75,10 @@ describe("savingHealthStatus", () => {
   it("reports below target when the month is negative after savings", () => {
     assert.equal(savingHealthStatus(10.88, -7_074_957), "Below target");
   });
+
+  it("reports unidentified when the month does not have enough data", () => {
+    assert.equal(savingHealthStatus(0.7, 1_000_000, false), "Unidentified");
+  });
 });
 
 describe("savingHealthPercent", () => {
