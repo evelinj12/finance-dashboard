@@ -220,7 +220,7 @@ insert into public.team_work_entries (
 )
 select
   tm.id,
-  coalesce(related_it.income_source_id, name_match.id),
+  coalesce(related_src.id, name_match.id),
   cp.id,
   cp.date,
   cp.client_or_project,
@@ -240,10 +240,14 @@ join public.team_members tm
   on lower(btrim(tm.name)) = 'kevin'
 left join public.income_transactions related_it
   on related_it.id = cp.related_income_transaction_id
+left join public.income_sources related_src
+  on related_src.id = related_it.income_source_id
+  and related_src.type = 'freelance_client'
 left join lateral (
   select i.id
   from public.income_sources i
   where lower(i.name) = lower(cp.client_or_project)
+    and i.type = 'freelance_client'
   order by i.active desc, i.created_at desc
   limit 1
 ) name_match on true
@@ -384,15 +388,19 @@ contractor_fallback_by_month as (
   from public.contractor_payments cp
   left join public.income_transactions related_it
     on related_it.id = cp.related_income_transaction_id
+  left join public.income_sources related_src
+    on related_src.id = related_it.income_source_id
+    and related_src.type = 'freelance_client'
   left join lateral (
     select i.id
     from public.income_sources i
     where lower(i.name) = lower(cp.client_or_project)
+      and i.type = 'freelance_client'
     order by i.active desc, i.created_at desc
     limit 1
   ) name_match on true
   left join public.income_sources src
-    on src.id = coalesce(related_it.income_source_id, name_match.id)
+    on src.id = coalesce(related_src.id, name_match.id)
   where cp.status in ('owed', 'paid', 'transferred')
     and lower(btrim(cp.payee)) in ('kevin', 'brother', 'punya kev')
     and not exists (
