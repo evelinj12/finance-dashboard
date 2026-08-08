@@ -17,7 +17,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MoneyInput, emptyMoneyValue, moneyValueToIdr, type MoneyValue } from "@/components/money-input";
 import { todayStr } from "@/lib/dates";
+import type { IncomePaymentStatus } from "@/lib/supabase/types";
 import { addIncomeTransaction, updateIncomeTransaction, type IncomeTransactionInput } from "./actions";
+import { incomePaymentStatusLabel, normalizeIncomePaymentStatus } from "./income-summary";
 
 interface Source {
   id: string;
@@ -34,6 +36,8 @@ interface ExistingIncome {
   currency: string;
   fx_rate: number;
   status: string | null;
+  payment_status?: IncomePaymentStatus | null;
+  total_hours: number | null;
 }
 
 export function IncomeDialog({
@@ -56,7 +60,10 @@ export function IncomeDialog({
       ? { amount: String(income.amount), currency: income.currency, fxRate: String(income.fx_rate) }
       : emptyMoneyValue("USD")
   );
-  const [status, setStatus] = useState(income?.status ?? "SUCCESS");
+  const [paymentStatus, setPaymentStatus] = useState<IncomePaymentStatus>(
+    normalizeIncomePaymentStatus(income?.payment_status, income?.status)
+  );
+  const [totalHours, setTotalHours] = useState(income?.total_hours == null ? "" : String(income.total_hours));
   const router = useRouter();
 
   async function handleSave() {
@@ -73,7 +80,8 @@ export function IncomeDialog({
       currency: money.currency,
       fx_rate: money.currency === "IDR" ? 1 : Number(money.fxRate) || 1,
       amount_idr: moneyValueToIdr(money),
-      status: status || null,
+      payment_status: paymentStatus,
+      total_hours: totalHours === "" ? null : Number(totalHours),
     };
     try {
       if (isEdit) {
@@ -84,6 +92,8 @@ export function IncomeDialog({
         toast.success("Income added");
         setMoney(emptyMoneyValue("USD"));
         setDescription("");
+        setPaymentStatus("waiting");
+        setTotalHours("");
       }
       setOpen(false);
       router.refresh();
@@ -134,9 +144,36 @@ export function IncomeDialog({
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label>Status</Label>
-            <Input value={status} onChange={(e) => setStatus(e.target.value)} />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
+              <Label>Status</Label>
+              <Select
+                value={paymentStatus}
+                onValueChange={(value) => setPaymentStatus(value === "paid" ? "paid" : "waiting")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["waiting", "paid"] as const).map((statusOption) => (
+                    <SelectItem key={statusOption} value={statusOption}>
+                      {incomePaymentStatusLabel(statusOption)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Total hours</Label>
+              <Input
+                type="number"
+                step="0.25"
+                min="0"
+                value={totalHours}
+                onChange={(event) => setTotalHours(event.target.value)}
+                placeholder="0"
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>

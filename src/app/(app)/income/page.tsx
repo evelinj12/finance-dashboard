@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,32 @@ import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
 import { AddSourceDialog } from "./add-source-dialog";
 import { IncomeDialog } from "./income-dialog";
+import { IncomeQuickForm } from "./income-quick-form";
+import {
+  buildIncomeSummary,
+  incomePaymentStatusLabel,
+  normalizeIncomePaymentStatus,
+  relatedSourceName,
+  type IncomeSummaryTeamEntry,
+  type IncomeSummaryTransaction,
+} from "./income-summary";
 import { DeleteIncomeButton } from "./delete-income-button";
+
+type IncomePageTransaction = IncomeSummaryTransaction & {
+  date: string;
+  description: string | null;
+  amount: number;
+  currency: string;
+  fx_rate: number;
+  status: string | null;
+};
+
+function queryErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return "Unknown query error";
+}
 
 export default async function IncomePage({
   searchParams,
@@ -20,24 +45,48 @@ export default async function IncomePage({
   const [start, end] = monthRange(month);
 
   const supabase = await createClient();
-  const [{ data: sources }, { data: incomeTx }, { data: summary }] = await Promise.all([
-    supabase
-      .from("income_sources")
-      .select("id, name, type, visible_in_active_breakdown")
-      .eq("active", true)
-      .order("name"),
+  const [
+    { data: sources, error: sourcesError },
+    { data: incomeTx, error: incomeTxError },
+    { data: teamEntries, error: teamEntriesError },
+    { data: summary, error: summaryError },
+  ] = await Promise.all([
+    supabase.from("income_sources").select("id, name, type, visible_in_active_breakdown").eq("active", true).order("name"),
     supabase
       .from("income_transactions")
       .select(
-        "id, income_source_id, date, description, amount, currency, fx_rate, amount_idr, status, income_source:income_sources(name, type)"
+        "id, income_source_id, date, description, amount, currency, fx_rate, amount_idr, status, payment_status, total_hours, income_source:income_sources(name, type)"
       )
       .gte("date", start)
       .lt("date", end)
       .order("date", { ascending: false }),
-    supabase.from("monthly_finance_summary_v2").select("*").eq("month", month).maybeSingle(),
+    supabase
+      .from("team_work_entries")
+      .select("id, income_source_id, amount_idr, hours, income_source:income_sources(name, type)")
+      .gte("date", start)
+      .lt("date", end),
+    supabase.from("monthly_finance_summary_v3").select("*").eq("month", month).maybeSingle(),
   ]);
 
+  const queryErrors = [
+    ["income sources", sourcesError],
+    ["income transactions", incomeTxError],
+    ["team work entries", teamEntriesError],
+    ["monthly summary", summaryError],
+  ]
+    .filter(([, error]) => error)
+    .map(([label, error]) => `${label}: ${queryErrorMessage(error)}`);
+
+  if (queryErrors.length > 0) {
+    throw new Error(`Failed to load income page data (${queryErrors.join("; ")})`);
+  }
+
   const sourceList = sources ?? [];
+  const incomeList = (incomeTx ?? []) as IncomePageTransaction[];
+  const incomeSummary = buildIncomeSummary({
+    incomeTransactions: incomeList,
+    teamEntries: (teamEntries ?? []) as IncomeSummaryTeamEntry[],
+  });
   const hiddenActiveClientIncomeIdr = summary?.active_hidden_income_idr ?? 0;
   const inactiveHistoricalClientIncomeIdr = Math.max(
     (summary?.freelance_client_income_idr ?? 0) -
@@ -53,18 +102,12 @@ export default async function IncomePage({
         <div className="flex items-center gap-2">
           <MonthPicker month={month} />
           <AddSourceDialog />
-          <IncomeDialog
-            sources={sourceList}
-            trigger={
-              <Button size="sm">
-                <Plus className="size-4" /> Add
-              </Button>
-            }
-          />
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <IncomeQuickForm key={month} sources={sourceList} selectedMonth={month} />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Visible active clients</CardTitle>
@@ -108,10 +151,73 @@ export default async function IncomePage({
             ) : null}
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Paid</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Money amountIdr={incomeSummary.paidAmountIdr} className="text-xl font-semibold" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Waiting</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Money amountIdr={incomeSummary.waitingAmountIdr} className="text-xl font-semibold" />
+          </CardContent>
+        </Card>
       </div>
       <p className="text-sm text-muted-foreground">
         Monthly income follows the imported rollup when available; detailed rows remain available for source analysis and exports.
       </p>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Client summary</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Client</TableHead>
+                <TableHead className="text-right">Gross money</TableHead>
+                <TableHead className="text-right">Gross time</TableHead>
+                <TableHead className="text-right">Team money</TableHead>
+                <TableHead className="text-right">Team time</TableHead>
+                <TableHead className="text-right">Net money</TableHead>
+                <TableHead className="text-right">Net time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {incomeSummary.clientRows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>{row.name}</TableCell>
+                  <TableCell className="text-right">
+                    <Money amountIdr={row.grossAmountIdr} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{row.grossHours.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    <Money amountIdr={row.teamAmountIdr} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{row.teamHours.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    <Money amountIdr={row.netAmountIdr} signed />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{row.netHours.toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+              {incomeSummary.clientRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    No freelance client income this month yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
@@ -121,19 +227,26 @@ export default async function IncomePage({
                 <TableHead>Date</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Description</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Hours</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(incomeTx ?? []).map((t) => {
-                const source = t.income_source as unknown as { name: string } | { name: string }[] | null;
-                const sourceName = Array.isArray(source) ? source[0]?.name : source?.name;
+              {incomeList.map((t) => {
+                const paymentStatus = normalizeIncomePaymentStatus(t.payment_status, t.status);
                 return (
                   <TableRow key={t.id}>
                     <TableCell className="whitespace-nowrap">{t.date}</TableCell>
-                    <TableCell>{sourceName}</TableCell>
+                    <TableCell>{relatedSourceName(t.income_source)}</TableCell>
                     <TableCell className="text-muted-foreground">{t.description}</TableCell>
+                    <TableCell>
+                      <Badge variant={paymentStatus === "waiting" ? "outline" : "secondary"}>
+                        {incomePaymentStatusLabel(paymentStatus)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{t.total_hours?.toLocaleString() ?? "-"}</TableCell>
                     <TableCell className="text-right">
                       <Money amountIdr={t.amount_idr} />
                     </TableCell>
@@ -152,9 +265,9 @@ export default async function IncomePage({
                   </TableRow>
                 );
               })}
-              {(!incomeTx || incomeTx.length === 0) && (
+              {incomeList.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No income logged this month yet.
                   </TableCell>
                 </TableRow>

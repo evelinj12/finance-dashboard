@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,6 +6,7 @@ import { MonthPicker } from "@/components/month-picker";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
 import { TransactionDialog } from "./transaction-dialog";
+import { TransactionQuickForm } from "./transaction-quick-form";
 import { DeleteTransactionButton } from "./delete-transaction-button";
 
 export default async function TransactionsPage({
@@ -37,16 +37,10 @@ export default async function TransactionsPage({
         <h2 className="text-2xl font-semibold">Transactions</h2>
         <div className="flex items-center gap-2">
           <MonthPicker month={month} />
-          <TransactionDialog
-            categories={categoryList}
-            trigger={
-              <Button size="sm">
-                <Plus className="size-4" /> Add
-              </Button>
-            }
-          />
         </div>
       </div>
+
+      <TransactionQuickForm key={month} categories={categoryList} selectedMonth={month} />
 
       <Card>
         <CardContent className="p-0">
