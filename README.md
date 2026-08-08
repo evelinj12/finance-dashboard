@@ -64,7 +64,8 @@ This is safe to re-run — it skips tables that already have imported rows.
 
 **Known limitations of the import**, worth knowing about:
 - The Google Sheets connector doesn't preserve every tab name, so older inactive freelance clients may still appear as "Client 1 (since Nov 2023)" style historical sources.
-- The active-client breakdown is automatically limited to Agent EA, Erica - BCC, Jasper, JML Media, and Z PD. Older clients stay in historical totals but are hidden from the active-client view.
+- The active-client breakdown is automatically limited to Agent EA, Erica - BCC, Jasper, JML Media, and Z PD. Older clients stay available in detailed exports but are hidden from the active-client view.
+- Monthly income uses `monthly_income_rollups` when a row exists, seeded from `Income Record` → `All clients` → `Clients + Lynk`. Detailed `income_transactions` remain available for source-level analysis and downloads.
 - Historical net worth snapshots (before May 2026) only have a total, not a cash/investments breakdown — they're filed under "investments" as a placeholder so the trend line stays accurate.
 - Expense transactions don't have exact days in the source sheet (just a monthly log), so imported transactions are all dated the 1st of their month.
 - The old "Potong/Tambah" petty-cash ledger (before your current Transaction Log system) wasn't imported — it was a narrow-scope reimbursement tracker, not full expense data, and is superseded by your current system anyway.
@@ -73,8 +74,8 @@ This is safe to re-run — it skips tables that already have imported rows.
 
 - Saving health target is more than 50%.
 - Saving health is calculated from savings covered by the month's income: `min(sinking funds + positive leftover net, income - true expenses) / total income`, floored at zero.
-- Income comes from `income_transactions`, not the expense workbook income cells.
-- Inactive clients remain included in historical totals but are hidden from active-client breakdowns.
+- Monthly income comes from the imported monthly rollup when available, then falls back to `income_transactions`.
+- Detailed inactive-client rows stay exportable, while monthly dashboard income uses the curated rollup.
 - Kevin payouts come from `Punya Kev` and can be marked owed, paid, transferred, or unknown.
 - CSV exports are available from the Exports page for authenticated users.
 

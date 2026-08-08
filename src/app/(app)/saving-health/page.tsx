@@ -13,7 +13,7 @@ export default async function SavingHealthPage() {
   const currentMonth = monthStart();
 
   const { data: summaries } = await supabase
-    .from("monthly_finance_summary")
+    .from("monthly_finance_summary_v2")
     .select("*")
     .gte("month", HISTORY_START_MONTH)
     .order("month", { ascending: false });

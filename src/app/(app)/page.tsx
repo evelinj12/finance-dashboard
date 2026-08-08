@@ -20,7 +20,7 @@ export default async function OverviewPage() {
     { data: sinkingFunds },
   ] = await Promise.all([
     supabase
-      .from("monthly_finance_summary")
+      .from("monthly_finance_summary_v2")
       .select("*")
       .eq("month", month)
       .maybeSingle(),

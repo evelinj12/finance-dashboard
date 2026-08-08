@@ -168,6 +168,26 @@ export interface Database {
           },
         ];
       };
+      monthly_income_rollups: {
+        Row: {
+          month: string;
+          client_income_idr: number;
+          digital_product_income_idr: number;
+          total_income_idr: number;
+          source: EntrySource;
+          source_sheet: string | null;
+          source_row: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["monthly_income_rollups"]["Row"]> & {
+          month: string;
+          total_income_idr: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["monthly_income_rollups"]["Row"]>;
+        Relationships: [];
+      };
       contractor_payments: {
         Row: {
           id: string;
@@ -267,10 +287,12 @@ export interface Database {
       };
     };
     Views: {
-      monthly_finance_summary: {
+      monthly_finance_summary_v2: {
         Row: {
           month: string;
           total_income_idr: number;
+          monthly_rollup_income_idr: number;
+          detailed_total_income_idr: number;
           active_income_idr: number;
           inactive_income_idr: number;
           active_visible_income_idr: number;

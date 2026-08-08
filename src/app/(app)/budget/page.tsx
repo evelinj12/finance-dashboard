@@ -39,7 +39,7 @@ export default async function BudgetPage({
         .lt("date", end),
       supabase.from("sinking_funds").select("name, monthly_amount, due_date, rolling, notes").order("due_date"),
       supabase
-        .from("monthly_finance_summary")
+        .from("monthly_finance_summary_v2")
         .select("*")
         .eq("month", month)
         .maybeSingle(),

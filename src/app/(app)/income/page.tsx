@@ -34,7 +34,7 @@ export default async function IncomePage({
       .gte("date", start)
       .lt("date", end)
       .order("date", { ascending: false }),
-    supabase.from("monthly_finance_summary").select("*").eq("month", month).maybeSingle(),
+    supabase.from("monthly_finance_summary_v2").select("*").eq("month", month).maybeSingle(),
   ]);
 
   const sourceList = sources ?? [];
@@ -99,15 +99,18 @@ export default async function IncomePage({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total income</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Monthly income</CardTitle>
           </CardHeader>
           <CardContent>
             <Money amountIdr={summary?.total_income_idr ?? 0} className="text-xl font-semibold" />
+            {summary?.monthly_rollup_income_idr ? (
+              <p className="mt-1 text-xs text-muted-foreground">From monthly rollup</p>
+            ) : null}
           </CardContent>
         </Card>
       </div>
       <p className="text-sm text-muted-foreground">
-        Historical inactive clients remain included in total income, but are hidden from the active-client breakdown.
+        Monthly income follows the imported rollup when available; detailed rows remain available for source analysis and exports.
       </p>
 
       <Card>

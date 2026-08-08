@@ -43,7 +43,7 @@ async function queryDataset(supabase: SupabaseClient, dataset: string): Promise<
       return error ? { rows: null, error: error.message } : { rows: asCsvRows(data) };
     }
     case "monthly-summary": {
-      const { data, error } = await supabase.from("monthly_finance_summary").select("*").limit(10000);
+      const { data, error } = await supabase.from("monthly_finance_summary_v2").select("*").limit(10000);
       return error ? { rows: null, error: error.message } : { rows: asCsvRows(data) };
     }
     default:
