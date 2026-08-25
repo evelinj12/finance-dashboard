@@ -61,9 +61,37 @@ export interface SinkingFundInput {
   notes: string | null;
 }
 
+function normalizeSinkingFundInput(input: SinkingFundInput) {
+  const name = input.name.trim();
+  if (!name) throw new Error("Sinking fund name is required");
+  if (!Number.isFinite(input.monthly_amount) || input.monthly_amount < 0) {
+    throw new Error("Monthly amount must be zero or more");
+  }
+
+  return {
+    name,
+    monthly_amount: Math.round(input.monthly_amount),
+    due_date: input.due_date || null,
+    rolling: input.rolling,
+    notes: input.notes?.trim() || null,
+  };
+}
+
 export async function addSinkingFund(input: SinkingFundInput) {
   const supabase = await createClient();
-  const { error } = await supabase.from("sinking_funds").insert(input);
+  const { error } = await supabase.from("sinking_funds").insert(normalizeSinkingFundInput(input));
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/budget");
+  revalidatePath("/");
+}
+
+export async function updateSinkingFund(id: string, input: SinkingFundInput) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sinking_funds")
+    .update(normalizeSinkingFundInput(input))
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
   revalidatePath("/budget");

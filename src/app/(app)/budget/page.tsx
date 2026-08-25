@@ -1,11 +1,14 @@
+import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Money } from "@/components/money";
 import { MonthPicker } from "@/components/month-picker";
 import { createClient } from "@/lib/supabase/server";
-import { monthRange, monthStart } from "@/lib/dates";
+import { monthRange, monthStart, shiftMonth } from "@/lib/dates";
 import { budgetActualFromTransaction, budgetDifference } from "@/lib/finance/budget-summary";
 import { calculateSavingHealth, savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
+import { ratioTrend } from "@/lib/finance/team-net";
 import type { CategoryTag } from "@/lib/supabase/types";
 import { EditBudgetsDialog } from "./edit-budgets-dialog";
 
@@ -18,6 +21,33 @@ const tagLabels: Record<string, string> = {
 
 const tagOrder: CategoryTag[] = ["income", "sinking_fund", "fixed", "spent"];
 
+function RatioTrend({ trend }: { trend: ReturnType<typeof ratioTrend> }) {
+  if (trend === "up") {
+    return (
+      <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+        <ArrowUpRight className="size-4" aria-hidden="true" />
+        vs previous month
+      </span>
+    );
+  }
+
+  if (trend === "down") {
+    return (
+      <span className="inline-flex items-center gap-1 text-sm font-medium text-red-600 dark:text-red-400">
+        <ArrowDownRight className="size-4" aria-hidden="true" />
+        vs previous month
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+      <Minus className="size-4" aria-hidden="true" />
+      vs previous month
+    </span>
+  );
+}
+
 export default async function BudgetPage({
   searchParams,
 }: {
@@ -25,11 +55,18 @@ export default async function BudgetPage({
 }) {
   const { month: monthParam } = await searchParams;
   const month = monthParam ?? monthStart();
+  const previousMonth = shiftMonth(month, -1);
   const [start, end] = monthRange(month);
 
   const supabase = await createClient();
-  const [{ data: categories }, { data: budgets }, { data: transactions }, { data: sinkingFunds }, { data: summary }] =
-    await Promise.all([
+  const [
+    { data: categories },
+    { data: budgets },
+    { data: transactions },
+    { data: sinkingFunds },
+    { data: summary },
+    { data: previousSummary },
+  ] = await Promise.all([
       supabase.from("categories").select("id, name, tag").eq("active", true).order("sort_order"),
       supabase.from("budgets").select("category_id, budget_amount").eq("month", month),
       supabase
@@ -39,9 +76,14 @@ export default async function BudgetPage({
         .lt("date", end),
       supabase.from("sinking_funds").select("name, monthly_amount, due_date, rolling, notes").order("due_date"),
       supabase
-        .from("monthly_finance_summary_v2")
+        .from("monthly_finance_summary_v3")
         .select("*")
         .eq("month", month)
+        .maybeSingle(),
+      supabase
+        .from("monthly_finance_summary_v3")
+        .select("*")
+        .eq("month", previousMonth)
         .maybeSingle(),
     ]);
 
@@ -72,6 +114,24 @@ export default async function BudgetPage({
         sinkingFundsIdr: summary.sinking_funds_idr,
       })
     : null;
+  const previousSavingHealth = previousSummary
+    ? calculateSavingHealth({
+        totalIncomeIdr: previousSummary.total_income_idr,
+        trueExpensesIdr: previousSummary.true_expenses_idr,
+        sinkingFundsIdr: previousSummary.sinking_funds_idr,
+      })
+    : null;
+  const savingHealthIdentified = summary?.saving_health_identified ?? false;
+  const previousSavingHealthIdentified = previousSummary?.saving_health_identified ?? false;
+  const status = savingHealthStatus(
+    savingHealth?.savingHealthRatio ?? 0,
+    savingHealth?.netAfterSavingsIdr ?? 0,
+    savingHealthIdentified,
+  );
+  const trend = ratioTrend(
+    savingHealthIdentified ? savingHealth?.savingHealthRatio ?? null : null,
+    previousSavingHealthIdentified ? previousSavingHealth?.savingHealthRatio ?? null : null,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,17 +166,33 @@ export default async function BudgetPage({
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Ratio</p>
-              <p className="text-lg font-semibold">
-                {savingHealthPercent(savingHealth?.savingHealthRatio ?? 0)}
-              </p>
+              {savingHealthIdentified ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-lg font-semibold">
+                    {savingHealthPercent(savingHealth?.savingHealthRatio ?? 0)}
+                  </p>
+                  <RatioTrend trend={trend} />
+                </div>
+              ) : (
+                <p className="text-lg font-semibold text-muted-foreground">Unidentified</p>
+              )}
             </div>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            {savingHealthStatus(
-              savingHealth?.savingHealthRatio ?? 0,
-              savingHealth?.netAfterSavingsIdr ?? 0,
-            )} · Target: more than 50%
-          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <Badge
+              variant="outline"
+              className={
+                status === "On target"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                  : status === "Below target"
+                    ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+                    : ""
+              }
+            >
+              {status}
+            </Badge>
+            <span>Target: more than 50%</span>
+          </div>
         </CardContent>
       </Card>
 
