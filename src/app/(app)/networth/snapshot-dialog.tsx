@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { monthStart } from "@/lib/dates";
+import type { NetWorthCategoryGroup } from "@/lib/supabase/types";
 import { upsertSnapshot } from "./actions";
 
 interface ExistingSnapshot {
@@ -28,34 +29,67 @@ interface ExistingSnapshot {
   notes: string | null;
 }
 
-const fields: { key: keyof ExistingSnapshot; label: string }[] = [
-  { key: "cash", label: "Cash" },
-  { key: "investments", label: "Investments" },
-  { key: "retirement", label: "Retirement" },
-  { key: "personal", label: "Personal (property, vehicles, etc.)" },
-  { key: "unsecured_liabilities", label: "Unsecured liabilities" },
-  { key: "secured_liabilities", label: "Secured liabilities" },
-];
+interface NetWorthCategory {
+  id: string;
+  name: string;
+  group_name: NetWorthCategoryGroup;
+  active: boolean;
+  source_key: string | null;
+}
+
+interface NetWorthCategoryValue {
+  category_id: string;
+  amount_idr: number;
+  notes: string | null;
+}
+
+function legacySnapshotAmount(snapshot: ExistingSnapshot | undefined, sourceKey: string | null) {
+  if (!snapshot) return 0;
+  switch (sourceKey) {
+    case "cash":
+      return snapshot.cash;
+    case "investments":
+      return snapshot.investments;
+    case "retirement":
+      return snapshot.retirement;
+    case "personal":
+      return snapshot.personal;
+    case "unsecured_liabilities":
+      return snapshot.unsecured_liabilities;
+    case "secured_liabilities":
+      return snapshot.secured_liabilities;
+    default:
+      return 0;
+  }
+}
 
 export function SnapshotDialog({
   snapshot,
+  categories,
+  categoryValues = [],
   trigger,
 }: {
   snapshot?: ExistingSnapshot;
+  categories: NetWorthCategory[];
+  categoryValues?: NetWorthCategoryValue[];
   trigger: React.ReactElement;
 }) {
   const isEdit = !!snapshot;
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [month, setMonth] = useState(snapshot?.month ?? monthStart());
-  const [values, setValues] = useState<Record<string, string>>({
-    cash: String(snapshot?.cash ?? 0),
-    investments: String(snapshot?.investments ?? 0),
-    retirement: String(snapshot?.retirement ?? 0),
-    personal: String(snapshot?.personal ?? 0),
-    unsecured_liabilities: String(snapshot?.unsecured_liabilities ?? 0),
-    secured_liabilities: String(snapshot?.secured_liabilities ?? 0),
+  const valuesByCategory = new Map(categoryValues.map((value) => [value.category_id, value]));
+  const visibleCategories = categories.filter((category) => {
+    return category.active || valuesByCategory.has(category.id);
   });
+  const [values, setValues] = useState<Record<string, string>>(
+    Object.fromEntries(
+      visibleCategories.map((category) => [
+        category.id,
+        String(valuesByCategory.get(category.id)?.amount_idr ?? legacySnapshotAmount(snapshot, category.source_key)),
+      ]),
+    ),
+  );
   const [notes, setNotes] = useState(snapshot?.notes ?? "");
   const router = useRouter();
 
@@ -64,12 +98,11 @@ export function SnapshotDialog({
     try {
       await upsertSnapshot({
         month,
-        cash: Number(values.cash) || 0,
-        investments: Number(values.investments) || 0,
-        retirement: Number(values.retirement) || 0,
-        personal: Number(values.personal) || 0,
-        unsecured_liabilities: Number(values.unsecured_liabilities) || 0,
-        secured_liabilities: Number(values.secured_liabilities) || 0,
+        values: visibleCategories.map((category) => ({
+          category_id: category.id,
+          amount_idr: Number(values[category.id]) || 0,
+          notes: null,
+        })),
         notes: notes || null,
       });
       toast.success("Snapshot saved");
@@ -99,16 +132,39 @@ export function SnapshotDialog({
               disabled={isEdit}
             />
           </div>
-          {fields.map((f) => (
-            <div key={f.key} className="flex flex-col gap-2">
-              <Label>{f.label} (IDR)</Label>
-              <Input
-                type="number"
-                value={values[f.key]}
-                onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-              />
-            </div>
-          ))}
+          {visibleCategories.length > 0 ? (
+            <>
+              {(["asset", "liability"] as const).map((group) => {
+                const groupCategories = visibleCategories.filter((category) => category.group_name === group);
+                if (groupCategories.length === 0) return null;
+
+                return (
+                  <div key={group} className="flex flex-col gap-3 rounded-md border p-3">
+                    <div className="text-sm font-medium capitalize">{group}s</div>
+                    {groupCategories.map((category) => (
+                      <div key={category.id} className="flex flex-col gap-2">
+                        <Label>{category.name} (IDR)</Label>
+                        <Input
+                          type="number"
+                          value={values[category.id] ?? "0"}
+                          onChange={(e) =>
+                            setValues((currentValues) => ({
+                              ...currentValues,
+                              [category.id]: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+              Add net worth categories before saving a categorized snapshot.
+            </p>
+          )}
           <div className="flex flex-col gap-2">
             <Label>Notes</Label>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />

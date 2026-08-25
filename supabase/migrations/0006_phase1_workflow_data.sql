@@ -193,6 +193,45 @@ grant select, insert, update, delete on table
   public.net_worth_category_values
 to authenticated;
 
+insert into public.net_worth_categories (name, group_name, sort_order, source_key)
+values
+  ('Cash', 'asset', 10, 'cash'),
+  ('Investments', 'asset', 20, 'investments'),
+  ('Retirement', 'asset', 30, 'retirement'),
+  ('Personal assets', 'asset', 40, 'personal'),
+  ('Unsecured liabilities', 'liability', 50, 'unsecured_liabilities'),
+  ('Secured liabilities', 'liability', 60, 'secured_liabilities')
+on conflict (name) do update set
+  group_name = excluded.group_name,
+  sort_order = excluded.sort_order,
+  source_key = excluded.source_key,
+  active = true;
+
+insert into public.net_worth_category_values (snapshot_id, category_id, amount_idr)
+select
+  s.id,
+  c.id,
+  case c.source_key
+    when 'cash' then s.cash
+    when 'investments' then s.investments
+    when 'retirement' then s.retirement
+    when 'personal' then s.personal
+    when 'unsecured_liabilities' then s.unsecured_liabilities
+    when 'secured_liabilities' then s.secured_liabilities
+    else 0
+  end
+from public.net_worth_snapshots s
+join public.net_worth_categories c
+  on c.source_key in (
+    'cash',
+    'investments',
+    'retirement',
+    'personal',
+    'unsecured_liabilities',
+    'secured_liabilities'
+  )
+on conflict (snapshot_id, category_id) do nothing;
+
 insert into public.dashboard_preferences (key, value)
 values (
   'nav',
