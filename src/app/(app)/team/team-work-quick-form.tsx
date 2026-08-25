@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Save, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,9 +115,14 @@ export function TeamWorkQuickForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Log team work</CardTitle>
+    <Card className="bg-gradient-to-br from-white to-orange-50/70">
+      <CardHeader className="border-b border-orange-100">
+        <CardTitle className="flex items-center gap-2">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-orange-100 text-orange-700">
+            <Users className="size-5" />
+          </span>
+          Log team work
+        </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid gap-4 md:grid-cols-3">
@@ -202,6 +208,7 @@ export function TeamWorkQuickForm({
 
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={saving || activeMembers.length === 0}>
+            <Save className="size-4" />
             {saving ? "Saving..." : "Log team work"}
           </Button>
         </div>

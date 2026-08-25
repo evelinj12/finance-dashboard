@@ -17,12 +17,12 @@ export function MonthPicker({ month }: { month: string }) {
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" onClick={() => goTo(shiftMonth(month, -1))}>
+    <div className="flex items-center gap-1 rounded-lg border border-sky-100 bg-white/65 p-1 shadow-sm shadow-sky-950/5">
+      <Button variant="ghost" size="icon-sm" onClick={() => goTo(shiftMonth(month, -1))} aria-label="Previous month">
         <ChevronLeft className="size-4" />
       </Button>
-      <span className="min-w-36 text-center text-sm font-medium">{formatMonthLabel(month)}</span>
-      <Button variant="ghost" size="icon" onClick={() => goTo(shiftMonth(month, 1))}>
+      <span className="min-w-36 text-center text-sm font-semibold">{formatMonthLabel(month)}</span>
+      <Button variant="ghost" size="icon-sm" onClick={() => goTo(shiftMonth(month, 1))} aria-label="Next month">
         <ChevronRight className="size-4" />
       </Button>
     </div>

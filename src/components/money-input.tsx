@@ -75,7 +75,7 @@ export function MoneyInput({
           <Input
             type="number"
             step="any"
-            className="h-8 w-32"
+            className="w-32"
             value={value.fxRate}
             onChange={(e) => onChange({ ...value, fxRate: e.target.value })}
           />

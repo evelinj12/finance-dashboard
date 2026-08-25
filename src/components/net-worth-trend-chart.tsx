@@ -1,6 +1,6 @@
 "use client";
 
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useCurrency } from "@/components/currency-provider";
 import { displayFromIdr, formatMoney } from "@/lib/currency";
 
@@ -17,8 +17,9 @@ export function NetWorthTrendChart({
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={240}>
+      <LineChart data={chartData} margin={{ top: 12, right: 12, left: 8, bottom: 0 }}>
+        <CartesianGrid stroke="var(--border)" strokeDasharray="3 8" vertical={false} />
         <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
         <YAxis hide domain={["auto", "auto"]} />
         <Tooltip
@@ -29,14 +30,16 @@ export function NetWorthTrendChart({
             border: "1px solid var(--border)",
             borderRadius: "var(--radius)",
             fontSize: 12,
+            boxShadow: "0 18px 45px -28px rgb(15 47 85 / 0.45)",
           }}
         />
         <Line
           type="monotone"
           dataKey="value"
-          stroke="var(--primary)"
-          strokeWidth={2}
-          dot={false}
+          stroke="var(--chart-1)"
+          strokeWidth={3}
+          dot={{ r: 3, fill: "var(--chart-1)", stroke: "white", strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: "var(--chart-1)", stroke: "white", strokeWidth: 2 }}
         />
       </LineChart>
     </ResponsiveContainer>

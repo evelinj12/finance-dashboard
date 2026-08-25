@@ -1,51 +1,92 @@
+import type { ComponentType } from "react";
 import Link from "next/link";
+import {
+  ArrowRight,
+  HeartPulse,
+  ReceiptText,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  WalletCards,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
+import { CatMascot, CoinStack, WalletIllustration } from "@/components/cozy-illustrations";
 import { Money } from "@/components/money";
 import { NetWorthTrendChart } from "@/components/net-worth-trend-chart";
 import { createClient } from "@/lib/supabase/server";
 import { formatMonthLabel, monthStart } from "@/lib/dates";
 import { savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
 
+function QuickLogCard({
+  href,
+  title,
+  description,
+  accent,
+  icon: Icon,
+}: {
+  href: string;
+  title: string;
+  description: string;
+  accent: string;
+  icon: ComponentType<{ className?: string }>;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-28 items-center justify-between gap-4 rounded-lg border border-sky-100 bg-white/75 p-4 shadow-sm shadow-sky-950/5 transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200 hover:bg-white hover:shadow-md hover:shadow-sky-950/10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/35"
+    >
+      <div className="flex items-center gap-3">
+        <span className={`flex size-11 items-center justify-center rounded-lg ${accent}`}>
+          <Icon className="size-5" />
+        </span>
+        <span>
+          <span className="block font-semibold text-foreground">{title}</span>
+          <span className="mt-1 block text-sm text-muted-foreground">{description}</span>
+        </span>
+      </div>
+      <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+    </Link>
+  );
+}
+
 export default async function OverviewPage() {
   const supabase = await createClient();
   const month = monthStart();
   const currentYear = new Date().getFullYear();
 
-  const [
-    { data: summary },
-    { data: netWorthHistory },
-    { data: goal },
-    { data: sinkingFunds },
-  ] = await Promise.all([
-    supabase
-      .from("monthly_finance_summary_v3")
-      .select("*")
-      .eq("month", month)
-      .maybeSingle(),
-    supabase
-      .from("net_worth_snapshots")
-      .select("month, net_worth")
-      .order("month", { ascending: true })
-      .limit(12),
-    supabase.from("goals").select("target_amount").eq("type", "net_worth").eq("year", currentYear).maybeSingle(),
-    supabase
-      .from("sinking_funds")
-      .select("name, due_date, monthly_amount")
-      .not("due_date", "is", null)
-      .order("due_date", { ascending: true })
-      .limit(4),
-  ]);
+  const [{ data: summary }, { data: netWorthHistory }, { data: goal }, { data: sinkingFunds }] =
+    await Promise.all([
+      supabase
+        .from("monthly_finance_summary_v3")
+        .select("*")
+        .eq("month", month)
+        .maybeSingle(),
+      supabase
+        .from("net_worth_snapshots")
+        .select("month, net_worth")
+        .order("month", { ascending: true })
+        .limit(12),
+      supabase.from("goals").select("target_amount").eq("type", "net_worth").eq("year", currentYear).maybeSingle(),
+      supabase
+        .from("sinking_funds")
+        .select("name, due_date, monthly_amount")
+        .not("due_date", "is", null)
+        .order("due_date", { ascending: true })
+        .limit(4),
+    ]);
 
   const incomeActual = summary?.total_income_idr ?? 0;
   const incomeBudget = summary?.income_budget_idr ?? 0;
   const trueExpensesActual = summary?.true_expenses_idr ?? 0;
   const trueExpensesBudget = (summary?.fixed_budget_idr ?? 0) + (summary?.variable_budget_idr ?? 0);
   const savingHealthRatio = summary?.saving_health_ratio ?? 0;
+  const savingHealthIdentified = summary?.saving_health_identified ?? false;
   const teamPaidThisMonth = summary?.team_paid_idr ?? 0;
   const teamOwedThisMonth = summary?.team_owed_idr ?? 0;
   const teamTotalThisMonth = summary?.team_total_idr ?? 0;
+  const netAfterSavings = summary?.net_after_savings_idr ?? 0;
   const incomeBySourceType = {
     freelance_client: summary?.freelance_client_income_idr ?? 0,
     digital_product: summary?.digital_product_income_idr ?? 0,
@@ -55,27 +96,94 @@ export default async function OverviewPage() {
   const latestNetWorth = netWorthHistory?.[netWorthHistory.length - 1]?.net_worth ?? 0;
   const goalTarget = goal?.target_amount ?? 0;
   const goalProgressPct = goalTarget > 0 ? Math.min(100, Math.max(0, (latestNetWorth / goalTarget) * 100)) : 0;
+  const savingPercent = savingHealthIdentified ? savingHealthPercent(savingHealthRatio) : "Unidentified";
+  const savingProgress = savingHealthIdentified ? Math.min(100, Math.max(0, savingHealthRatio * 100)) : 0;
+  const trueExpensePct =
+    trueExpensesBudget > 0 ? Math.min(100, Math.max(0, (trueExpensesActual / trueExpensesBudget) * 100)) : 0;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-2xl font-semibold">{formatMonthLabel(month)}</h2>
-        <div className="flex gap-2">
-          <Button size="sm" render={<Link href="/transactions">+ Transaction</Link>} />
-          <Button size="sm" variant="outline" render={<Link href="/income">+ Income</Link>} />
-        </div>
-      </div>
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.8fr)]">
+        <Card className="relative overflow-hidden bg-white/80">
+          <CardContent className="grid gap-6 p-5 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <Badge variant="secondary" className="mb-4 border border-emerald-200 bg-emerald-50 text-emerald-800">
+                <Sparkles className="size-3" />
+                {formatMonthLabel(month)}
+              </Badge>
+              <h2 className="text-3xl font-bold leading-tight text-foreground sm:text-4xl">Good morning, Evelin</h2>
+              <p className="mt-2 max-w-xl text-base text-muted-foreground">
+                {savingHealthIdentified
+                  ? `Saving health is ${savingPercent} for ${formatMonthLabel(month)}.`
+                  : "This month has unidentified data, so the saving health needs a closer look."}
+              </p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <QuickLogCard
+                  href="/transactions"
+                  title="Quick transaction"
+                  description="Log spending"
+                  accent="bg-sky-100 text-sky-700"
+                  icon={ReceiptText}
+                />
+                <QuickLogCard
+                  href="/income"
+                  title="Quick income"
+                  description="Paid or waiting"
+                  accent="bg-emerald-100 text-emerald-700"
+                  icon={WalletCards}
+                />
+                <QuickLogCard
+                  href="/team"
+                  title="Team work"
+                  description="Kevin payout"
+                  accent="bg-orange-100 text-orange-700"
+                  icon={Users}
+                />
+              </div>
+            </div>
+            <div className="hidden min-w-40 justify-center md:flex">
+              <WalletIllustration className="w-44" />
+            </div>
+          </CardContent>
+        </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-[color:var(--surface-blue)]">
+          <CardContent className="flex h-full flex-col justify-between gap-5 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground">Saving Health</p>
+                <p className="mt-1 text-4xl font-bold money-figures">{savingPercent}</p>
+              </div>
+              <span className="flex size-12 items-center justify-center rounded-lg bg-white text-primary shadow-sm">
+                <HeartPulse className="size-6" />
+              </span>
+            </div>
+            <div>
+              <div className="relative h-3 overflow-hidden rounded-full bg-white">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${savingProgress}%` }} />
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {savingHealthIdentified
+                  ? `${savingHealthStatus(savingHealthRatio, netAfterSavings)} - Target: more than 50%`
+                  : "Waiting for complete income and budget data."}
+              </p>
+            </div>
+            <CatMascot className="self-end" />
+          </CardContent>
+        </Card>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <WalletCards className="size-4 text-emerald-600" />
               Income month-to-date
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Money amountIdr={incomeActual} className="text-2xl font-semibold" />
-            <p className="text-xs text-muted-foreground mt-1">
+            <Money amountIdr={incomeActual} className="text-2xl font-bold money-figures" />
+            <p className="mt-1 text-xs text-muted-foreground">
               Budget <Money amountIdr={incomeBudget} />
             </p>
           </CardContent>
@@ -83,13 +191,15 @@ export default async function OverviewPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <ReceiptText className="size-4 text-red-600" />
               True expenses
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Money amountIdr={trueExpensesActual} className="text-2xl font-semibold" />
-            <p className="text-xs text-muted-foreground mt-1">
+            <Money amountIdr={trueExpensesActual} className="text-2xl font-bold money-figures" />
+            <Progress value={trueExpensePct} className="mt-3" />
+            <p className="mt-2 text-xs text-muted-foreground">
               Budget <Money amountIdr={trueExpensesBudget} />
             </p>
           </CardContent>
@@ -97,28 +207,28 @@ export default async function OverviewPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Saving health
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <ShieldCheck className="size-4 text-sky-600" />
+              Net after savings
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold">{savingHealthPercent(savingHealthRatio)}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {savingHealthStatus(savingHealthRatio, summary?.net_after_savings_idr ?? 0)} · Target: more than 50%
-            </p>
+            <Money amountIdr={netAfterSavings} signed className="text-2xl font-bold money-figures" />
+            <p className="mt-1 text-xs text-muted-foreground">After expenses and sinking funds</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <Users className="size-4 text-orange-600" />
               Team payouts
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Money amountIdr={teamTotalThisMonth} className="text-2xl font-semibold" />
-            <p className="text-xs text-muted-foreground mt-1">
-              Paid <Money amountIdr={teamPaidThisMonth} /> · Owed <Money amountIdr={teamOwedThisMonth} /> ·{" "}
+            <Money amountIdr={teamTotalThisMonth} className="text-2xl font-bold money-figures" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Paid <Money amountIdr={teamPaidThisMonth} /> - Owed <Money amountIdr={teamOwedThisMonth} /> -{" "}
               <Link href="/team" className="underline underline-offset-2">
                 View team
               </Link>
@@ -129,14 +239,17 @@ export default async function OverviewPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Net worth trend</CardTitle>
+          <CardHeader className="border-b border-sky-100">
+            <CardTitle className="flex items-center justify-between gap-3">
+              <span>Net worth trend</span>
+              <Badge variant="outline" className="bg-white/70">
+                {currentYear}
+              </Badge>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {netWorthHistory && netWorthHistory.length > 0 ? (
-              <NetWorthTrendChart
-                data={netWorthHistory.map((n) => ({ month: n.month, netWorthIdr: n.net_worth }))}
-              />
+              <NetWorthTrendChart data={netWorthHistory.map((n) => ({ month: n.month, netWorthIdr: n.net_worth }))} />
             ) : (
               <p className="text-sm text-muted-foreground">
                 No net worth snapshots yet.{" "}
@@ -148,12 +261,12 @@ export default async function OverviewPage() {
             )}
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Current net worth</span>
-              <Money amountIdr={latestNetWorth} className="font-semibold" />
+              <Money amountIdr={latestNetWorth} className="font-bold money-figures" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-b from-white to-sky-50/70">
           <CardHeader>
             <CardTitle>{currentYear} goal</CardTitle>
           </CardHeader>
@@ -162,8 +275,7 @@ export default async function OverviewPage() {
               <>
                 <Progress value={goalProgressPct} className="mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  <Money amountIdr={latestNetWorth} /> of <Money amountIdr={goalTarget} /> (
-                  {goalProgressPct.toFixed(0)}%)
+                  <Money amountIdr={latestNetWorth} /> of <Money amountIdr={goalTarget} /> ({goalProgressPct.toFixed(0)}%)
                 </p>
               </>
             ) : (
@@ -175,6 +287,7 @@ export default async function OverviewPage() {
                 .
               </p>
             )}
+            <CoinStack className="mt-4 ml-auto w-28" />
           </CardContent>
         </Card>
       </div>
@@ -184,16 +297,16 @@ export default async function OverviewPage() {
           <CardHeader>
             <CardTitle>Income by source</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <div className="flex justify-between text-sm">
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex justify-between rounded-lg bg-sky-50 px-3 py-2 text-sm">
               <span>Freelance clients</span>
               <Money amountIdr={incomeBySourceType.freelance_client} />
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm">
               <span>Digital products</span>
               <Money amountIdr={incomeBySourceType.digital_product} />
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between rounded-lg bg-amber-50 px-3 py-2 text-sm">
               <span>Other</span>
               <Money amountIdr={incomeBySourceType.other} />
             </div>
@@ -207,13 +320,17 @@ export default async function OverviewPage() {
           <CardContent className="flex flex-col gap-2">
             {sinkingFunds && sinkingFunds.length > 0 ? (
               sinkingFunds.map((f) => (
-                <div key={f.name} className="flex justify-between text-sm">
+                <div
+                  key={f.name}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-sky-100 bg-white/70 px-3 py-2 text-sm"
+                >
                   <span>
                     {f.name}
                     {f.due_date ? (
                       <span className="text-muted-foreground">
                         {" "}
-                        · {new Date(f.due_date).toLocaleDateString("en-US", {
+                        -{" "}
+                        {new Date(f.due_date).toLocaleDateString("en-US", {
                           month: "short",
                           year: "numeric",
                         })}

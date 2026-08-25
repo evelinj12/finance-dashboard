@@ -2,10 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Save } from "lucide-react";
+import { ChevronDown, Save, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -90,7 +90,15 @@ export function IncomeQuickForm({
   }
 
   return (
-    <Card>
+    <Card className="bg-gradient-to-br from-white to-emerald-50/70">
+      <CardHeader className="border-b border-emerald-100">
+        <CardTitle className="flex items-center gap-2">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+            <WalletCards className="size-5" />
+          </span>
+          Quick income
+        </CardTitle>
+      </CardHeader>
       <CardContent className="p-4">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid gap-3 lg:grid-cols-[minmax(130px,0.75fr)_minmax(180px,1.2fr)_minmax(160px,0.9fr)_minmax(150px,0.8fr)_minmax(120px,0.65fr)]">
@@ -169,7 +177,7 @@ export function IncomeQuickForm({
             </Button>
           </div>
 
-          <div className="flex flex-col gap-3 border-t pt-3">
+          <div className="flex flex-col gap-3 border-t border-emerald-100 pt-3">
             <Button
               type="button"
               variant="ghost"
