@@ -2,14 +2,12 @@ import type { ComponentType } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  HeartPulse,
   ReceiptText,
   ShieldCheck,
-  Sparkles,
   Users,
   WalletCards,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { DashboardMonthSelect, NetWorthRangeSelect } from "@/components/dashboard-filter-selects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CatMascot, CoinStack, WalletIllustration } from "@/components/cozy-illustrations";
@@ -17,8 +15,37 @@ import { GoalProgressDonut } from "@/components/goal-progress-donut";
 import { Money } from "@/components/money";
 import { NetWorthTrendChart } from "@/components/net-worth-trend-chart";
 import { createClient } from "@/lib/supabase/server";
-import { formatMonthLabel, monthStart } from "@/lib/dates";
+import { formatMonthLabel, monthStart, shiftMonth } from "@/lib/dates";
 import { savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
+
+type NetWorthRange = "6m" | "12m" | "ytd" | "all";
+
+const netWorthRanges = new Set<string>(["6m", "12m", "ytd", "all"]);
+
+function normalizeMonthParam(month: string | undefined) {
+  return month && /^\d{4}-\d{2}-01$/.test(month) ? month : monthStart();
+}
+
+function normalizeRangeParam(range: string | undefined): NetWorthRange {
+  return netWorthRanges.has(range ?? "") ? (range as NetWorthRange) : "12m";
+}
+
+function filterNetWorthRows(
+  rows: { month: string; net_worth: number }[],
+  selectedMonth: string,
+  range: NetWorthRange,
+) {
+  const startMonth =
+    range === "all"
+      ? null
+      : range === "ytd"
+        ? `${selectedMonth.slice(0, 4)}-01-01`
+        : shiftMonth(selectedMonth, range === "6m" ? -5 : -11);
+
+  return rows.filter((row) => {
+    return row.month <= selectedMonth && (!startMonth || row.month >= startMonth);
+  });
+}
 
 function QuickLogCard({
   href,
@@ -76,12 +103,18 @@ function SavingHealthDonut({ progress, label }: { progress: number; label: strin
   );
 }
 
-export default async function OverviewPage() {
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string; netWorthRange?: string }>;
+}) {
+  const { month: monthParam, netWorthRange } = await searchParams;
   const supabase = await createClient();
-  const month = monthStart();
-  const currentYear = new Date().getFullYear();
+  const month = normalizeMonthParam(monthParam);
+  const selectedYear = Number(month.slice(0, 4));
+  const selectedNetWorthRange = normalizeRangeParam(netWorthRange);
 
-  const [{ data: summary }, { data: netWorthHistory }, { data: goal }, { data: sinkingFunds }] =
+  const [{ data: summary }, { data: summaryMonths }, { data: netWorthHistory }, { data: goal }, { data: sinkingFunds }] =
     await Promise.all([
       supabase
         .from("monthly_finance_summary_v3")
@@ -89,11 +122,15 @@ export default async function OverviewPage() {
         .eq("month", month)
         .maybeSingle(),
       supabase
+        .from("monthly_finance_summary_v3")
+        .select("month")
+        .order("month", { ascending: false })
+        .limit(36),
+      supabase
         .from("net_worth_snapshots")
         .select("month, net_worth")
-        .order("month", { ascending: true })
-        .limit(12),
-      supabase.from("goals").select("target_amount").eq("type", "net_worth").eq("year", currentYear).maybeSingle(),
+        .order("month", { ascending: true }),
+      supabase.from("goals").select("target_amount").eq("type", "net_worth").eq("year", selectedYear).maybeSingle(),
       supabase
         .from("sinking_funds")
         .select("name, due_date, monthly_amount")
@@ -118,9 +155,12 @@ export default async function OverviewPage() {
     other: summary?.other_income_idr ?? 0,
   };
 
-  const latestNetWorth = netWorthHistory?.[netWorthHistory.length - 1]?.net_worth ?? 0;
+  const netWorthRows = netWorthHistory ?? [];
+  const netWorthTrendRows = filterNetWorthRows(netWorthRows, month, selectedNetWorthRange);
+  const latestNetWorth = netWorthRows.filter((row) => row.month <= month).at(-1)?.net_worth ?? 0;
   const goalTarget = goal?.target_amount ?? 0;
   const goalProgressPct = goalTarget > 0 ? Math.min(100, Math.max(0, (latestNetWorth / goalTarget) * 100)) : 0;
+  const availableMonths = (summaryMonths ?? []).map((row) => row.month);
   const savingPercent = savingHealthIdentified ? savingHealthPercent(savingHealthRatio) : "Unidentified";
   const savingProgress = savingHealthIdentified ? Math.min(100, Math.max(0, savingHealthRatio * 100)) : 0;
   const trueExpensePct =
@@ -132,10 +172,9 @@ export default async function OverviewPage() {
         <Card className="relative overflow-hidden bg-white/80">
           <CardContent className="grid gap-6 p-5 md:grid-cols-[1fr_auto] md:items-center">
             <div>
-              <Badge variant="secondary" className="mb-4 border border-emerald-200 bg-emerald-50 text-emerald-800">
-                <Sparkles className="size-3" />
-                {formatMonthLabel(month)}
-              </Badge>
+              <div className="mb-4">
+                <DashboardMonthSelect month={month} months={availableMonths} />
+              </div>
               <h2 className="text-3xl font-bold leading-tight text-foreground sm:text-4xl">Good morning, Evelin</h2>
               <p className="mt-2 max-w-xl text-base text-muted-foreground">
                 {savingHealthIdentified
@@ -179,8 +218,8 @@ export default async function OverviewPage() {
                 <p className="text-sm font-semibold text-muted-foreground">Saving Health</p>
                 <p className="mt-1 text-4xl font-bold money-figures">{savingPercent}</p>
               </div>
-              <span className="flex size-12 items-center justify-center rounded-lg bg-white text-primary shadow-sm">
-                <HeartPulse className="size-6" />
+              <span className="rounded-full border border-sky-100 bg-white px-3 py-1 text-sm font-semibold text-sky-700 shadow-sm">
+                Goal &gt; 50%
               </span>
             </div>
             <div className="grid flex-1 items-center gap-4 sm:grid-cols-[auto_1fr] lg:grid-cols-1 xl:grid-cols-[auto_1fr]">
@@ -203,7 +242,7 @@ export default async function OverviewPage() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
               <WalletCards className="size-4 text-emerald-600" />
-              Income month-to-date
+              Monthly income
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -265,19 +304,17 @@ export default async function OverviewPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="border-b border-sky-100">
-            <CardTitle className="flex items-center justify-between gap-3">
+            <CardTitle className="flex flex-wrap items-center justify-between gap-3">
               <span>Net worth trend</span>
-              <Badge variant="outline" className="bg-white/70">
-                {currentYear}
-              </Badge>
+              <NetWorthRangeSelect value={selectedNetWorthRange} />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {netWorthHistory && netWorthHistory.length > 0 ? (
-              <NetWorthTrendChart data={netWorthHistory.map((n) => ({ month: n.month, netWorthIdr: n.net_worth }))} />
+            {netWorthTrendRows.length > 0 ? (
+              <NetWorthTrendChart data={netWorthTrendRows.map((n) => ({ month: n.month, netWorthIdr: n.net_worth }))} />
             ) : (
               <p className="text-sm text-muted-foreground">
-                No net worth snapshots yet.{" "}
+                No net worth snapshots in this range.{" "}
                 <Link href="/networth" className="underline underline-offset-2">
                   Add one
                 </Link>
@@ -285,7 +322,7 @@ export default async function OverviewPage() {
               </p>
             )}
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Current net worth</span>
+              <span className="text-sm text-muted-foreground">Net worth through {formatMonthLabel(month)}</span>
               <Money amountIdr={latestNetWorth} className="font-bold money-figures" />
             </div>
           </CardContent>
@@ -293,7 +330,7 @@ export default async function OverviewPage() {
 
         <Card className="bg-gradient-to-b from-white to-sky-50/70">
           <CardHeader>
-            <CardTitle>{currentYear} goal</CardTitle>
+            <CardTitle>{selectedYear} goal</CardTitle>
           </CardHeader>
           <CardContent>
             {goalTarget > 0 ? (
@@ -301,11 +338,11 @@ export default async function OverviewPage() {
                 currentAmountIdr={latestNetWorth}
                 progressPct={goalProgressPct}
                 targetAmountIdr={goalTarget}
-                year={currentYear}
+                year={selectedYear}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                No {currentYear} net worth goal set.{" "}
+                No {selectedYear} net worth goal set.{" "}
                 <Link href="/settings" className="underline underline-offset-2">
                   Set one
                 </Link>

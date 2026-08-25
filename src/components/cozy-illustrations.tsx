@@ -33,36 +33,52 @@ export function BrandMark({ className }: { className?: string }) {
 export function CatMascot({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 180 130" className={cn("h-auto w-36", className)} fill="none" aria-hidden="true">
-      <ellipse cx="91" cy="113" rx="58" ry="10" fill="#c9e8ff" opacity=".75" />
-      <path
-        d="M48 75c0-24 19-43 43-43h11c21 0 38 17 38 38v4c0 27-22 49-49 49S48 102 48 75Z"
-        fill="#fff"
-        stroke="#8ecbff"
-        strokeWidth="4"
-      />
-      <path
-        d="m61 42-6-23 23 13M120 41l9-22 16 22"
-        fill="#fff"
-        stroke="#8ecbff"
-        strokeLinejoin="round"
-        strokeWidth="4"
-      />
-      <path d="M70 70c5 5 12 5 17 0M102 70c5 5 12 5 17 0" stroke="#18345c" strokeLinecap="round" strokeWidth="4" />
-      <path d="M90 80c3 2 7 2 10 0" stroke="#18345c" strokeLinecap="round" strokeWidth="3" />
-      <path d="M84 89c7 5 16 5 23 0" stroke="#ff8c8c" strokeLinecap="round" strokeWidth="3" />
-      <circle cx="66" cy="83" r="5" fill="#ffd1d8" />
-      <circle cx="122" cy="83" r="5" fill="#ffd1d8" />
-      <path d="M60 82H39M61 90H43M129 82h18M127 90h20" stroke="#8ca8c8" strokeLinecap="round" strokeWidth="3" />
-      <path
-        d="M47 88c-14-4-22 3-22 13 0 9 9 15 21 10"
-        stroke="#8ecbff"
-        strokeLinecap="round"
-        strokeWidth="7"
-      />
-      <circle cx="136" cy="101" r="16" fill="#ffd166" stroke="#f59e0b" strokeWidth="3" />
-      <path d="M128 101h16M136 93v16" stroke="#b87503" strokeLinecap="round" strokeWidth="3" />
-      <path d="M31 105c-2-10 7-18 17-13" stroke="#9bd7b5" strokeLinecap="round" strokeWidth="5" />
-      <path d="M31 105c8-2 13-8 15-15" stroke="#9bd7b5" strokeLinecap="round" strokeWidth="3" />
+      <defs>
+        <radialGradient id="cat-fur" cx="34%" cy="25%" r="72%">
+          <stop stopColor="#ffd27a" />
+          <stop offset=".58" stopColor="#f6a83c" />
+          <stop offset="1" stopColor="#d97916" />
+        </radialGradient>
+        <radialGradient id="cat-eye" cx="34%" cy="28%" r="64%">
+          <stop stopColor="#ffffff" />
+          <stop offset=".22" stopColor="#1f2937" />
+          <stop offset="1" stopColor="#06070a" />
+        </radialGradient>
+        <filter id="cat-soft-shadow" x="0" y="0" width="180" height="130" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="10" stdDeviation="7" floodColor="#0f2f55" floodOpacity=".18" />
+        </filter>
+      </defs>
+      <ellipse cx="93" cy="114" rx="58" ry="10" fill="#8ecbff" opacity=".25" />
+      <g filter="url(#cat-soft-shadow)">
+        <path
+          d="M48 85c0-22 20-40 45-40h23c19 0 34 15 34 34 0 23-19 41-42 41H79c-17 0-31-15-31-35Z"
+          fill="url(#cat-fur)"
+        />
+        <path
+          d="M39 64c0-24 20-43 44-43h14c22 0 40 18 40 40 0 26-21 46-47 46h-4c-26 0-47-19-47-43Z"
+          fill="url(#cat-fur)"
+        />
+        <path d="m53 36-4-25 22 14M122 35l10-23 13 25" fill="#f3a23a" />
+        <path d="m58 35-3-13 12 7M129 34l5-12 6 13" fill="#ff9aa8" opacity=".8" />
+        <ellipse cx="69" cy="61" rx="10" ry="13" fill="url(#cat-eye)" />
+        <ellipse cx="108" cy="61" rx="10" ry="13" fill="url(#cat-eye)" />
+        <circle cx="65" cy="56" r="3" fill="#ffffff" opacity=".95" />
+        <circle cx="104" cy="56" r="3" fill="#ffffff" opacity=".95" />
+        <path d="M86 70c3 2 7 2 10 0" stroke="#7c3f12" strokeLinecap="round" strokeWidth="3" />
+        <path d="M80 80c7 6 19 6 26 0" stroke="#7c3f12" strokeLinecap="round" strokeWidth="3" />
+        <path d="M57 52c4-5 11-5 15-1M101 51c5-4 12-3 16 2" stroke="#9a571b" strokeLinecap="round" strokeWidth="4" />
+        <circle cx="59" cy="74" r="5" fill="#ffb0b8" opacity=".8" />
+        <circle cx="118" cy="74" r="5" fill="#ffb0b8" opacity=".8" />
+        <path d="M55 76H32M56 84H35M122 76h23M121 84h21" stroke="#7c3f12" strokeLinecap="round" strokeWidth="3" />
+        <path
+          d="M137 61c17-14 27-5 26 10-1 17-18 24-31 13"
+          stroke="#d97916"
+          strokeLinecap="round"
+          strokeWidth="13"
+        />
+        <path d="M66 27c-4 10-4 17-1 22M85 24c-5 11-5 19-2 25M105 27c-6 9-7 16-4 23" stroke="#d97916" strokeLinecap="round" strokeWidth="5" />
+        <path d="M126 55c8 2 14 5 19 10M125 65c7 3 13 7 17 13" stroke="#d97916" strokeLinecap="round" strokeWidth="5" />
+      </g>
     </svg>
   );
 }
@@ -70,17 +86,29 @@ export function CatMascot({ className }: { className?: string }) {
 export function CoinStack({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 150 110" className={cn("h-auto w-28", className)} fill="none" aria-hidden="true">
-      <ellipse cx="52" cy="83" rx="31" ry="11" fill="#f8bd3b" stroke="#e49516" strokeWidth="3" />
-      <path d="M21 66v17c0 6 14 11 31 11s31-5 31-11V66" fill="#ffd166" />
-      <path d="M21 66v17c0 6 14 11 31 11s31-5 31-11V66" stroke="#e49516" strokeWidth="3" />
-      <ellipse cx="52" cy="66" rx="31" ry="11" fill="#ffe08a" stroke="#e49516" strokeWidth="3" />
-      <path d="M23 74c8 6 48 6 58 0M23 83c8 6 48 6 58 0" stroke="#e49516" strokeWidth="2" />
-      <ellipse cx="94" cy="61" rx="31" ry="11" fill="#f8bd3b" stroke="#e49516" strokeWidth="3" />
-      <path d="M63 37v24c0 6 14 11 31 11s31-5 31-11V37" fill="#ffd166" />
-      <path d="M63 37v24c0 6 14 11 31 11s31-5 31-11V37" stroke="#e49516" strokeWidth="3" />
-      <ellipse cx="94" cy="37" rx="31" ry="11" fill="#ffe08a" stroke="#e49516" strokeWidth="3" />
-      <path d="M66 46c8 6 48 6 57 0M66 56c8 6 48 6 57 0" stroke="#e49516" strokeWidth="2" />
-      <path d="m22 35 5-10 5 10 10 5-10 5-5 10-5-10-10-5 10-5Z" fill="#9bd7b5" />
+      <defs>
+        <linearGradient id="coin-side" x1="26" x2="92" y1="48" y2="96">
+          <stop stopColor="#ffd978" />
+          <stop offset="1" stopColor="#e7a11b" />
+        </linearGradient>
+        <linearGradient id="coin-top" x1="28" x2="119" y1="24" y2="49">
+          <stop stopColor="#fff1ad" />
+          <stop offset="1" stopColor="#f8bd3b" />
+        </linearGradient>
+        <filter id="coin-shadow" x="0" y="0" width="150" height="110" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="8" stdDeviation="5" floodColor="#0f2f55" floodOpacity=".16" />
+        </filter>
+      </defs>
+      <g filter="url(#coin-shadow)">
+        <ellipse cx="53" cy="85" rx="31" ry="11" fill="#d98a11" opacity=".55" />
+        <path d="M22 65v19c0 7 14 12 31 12s31-5 31-12V65" fill="url(#coin-side)" />
+        <ellipse cx="53" cy="65" rx="31" ry="12" fill="url(#coin-top)" />
+        <path d="M25 74c10 6 46 6 56 0M25 84c10 6 46 6 56 0" stroke="#d98a11" strokeWidth="2" />
+        <path d="M64 36v25c0 7 14 12 31 12s31-5 31-12V36" fill="url(#coin-side)" />
+        <ellipse cx="95" cy="36" rx="31" ry="12" fill="url(#coin-top)" />
+        <path d="M68 47c10 6 44 6 55 0M68 57c10 6 44 6 55 0" stroke="#d98a11" strokeWidth="2" />
+        <path d="m23 35 5-10 5 10 10 5-10 5-5 10-5-10-10-5 10-5Z" fill="#9bd7b5" />
+      </g>
     </svg>
   );
 }
@@ -88,15 +116,35 @@ export function CoinStack({ className }: { className?: string }) {
 export function WalletIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 180 130" className={cn("h-auto w-36", className)} fill="none" aria-hidden="true">
-      <path d="M48 45c0-10 8-18 18-18h64c10 0 18 8 18 18v48c0 10-8 18-18 18H66c-10 0-18-8-18-18V45Z" fill="#3b97f5" />
-      <path d="M48 54h95c10 0 18 8 18 18v9c0 10-8 18-18 18H48V54Z" fill="#2477d4" />
-      <path d="M133 68h29v22h-29c-6 0-11-5-11-11s5-11 11-11Z" fill="#8ecbff" stroke="#0f5fb8" strokeWidth="3" />
-      <circle cx="135" cy="79" r="4" fill="#fff" />
-      <path d="M64 35c17-18 42-22 61-9L83 50 64 35Z" fill="#9bd7b5" stroke="#35a779" strokeWidth="3" />
-      <path d="M73 29c17-7 34-7 48 2" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-      <circle cx="46" cy="90" r="13" fill="#ffd166" stroke="#f59e0b" strokeWidth="3" />
-      <path d="M39 90h14M46 83v14" stroke="#b87503" strokeWidth="3" strokeLinecap="round" />
-      <path d="m28 55 4-8 4 8 8 4-8 4-4 8-4-8-8-4 8-4Z" fill="#ffd166" />
+      <defs>
+        <linearGradient id="wallet-body" x1="52" x2="148" y1="27" y2="111">
+          <stop stopColor="#58adff" />
+          <stop offset=".55" stopColor="#2387eb" />
+          <stop offset="1" stopColor="#1766c2" />
+        </linearGradient>
+        <linearGradient id="wallet-front" x1="50" x2="154" y1="54" y2="99">
+          <stop stopColor="#3b97f5" />
+          <stop offset="1" stopColor="#1766c2" />
+        </linearGradient>
+        <linearGradient id="wallet-cash" x1="67" x2="120" y1="26" y2="50">
+          <stop stopColor="#d8f8dc" />
+          <stop offset="1" stopColor="#77d59e" />
+        </linearGradient>
+        <filter id="wallet-shadow" x="0" y="0" width="180" height="130" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="11" stdDeviation="7" floodColor="#0f2f55" floodOpacity=".18" />
+        </filter>
+      </defs>
+      <g filter="url(#wallet-shadow)">
+        <path d="M48 45c0-10 8-18 18-18h64c10 0 18 8 18 18v48c0 10-8 18-18 18H66c-10 0-18-8-18-18V45Z" fill="url(#wallet-body)" />
+        <path d="M48 54h95c10 0 18 8 18 18v9c0 10-8 18-18 18H48V54Z" fill="url(#wallet-front)" />
+        <path d="M133 68h29v22h-29c-6 0-11-5-11-11s5-11 11-11Z" fill="#9bd7ff" stroke="#0f5fb8" strokeWidth="3" />
+        <circle cx="135" cy="79" r="4" fill="#fff" />
+        <path d="M64 35c17-18 42-22 61-9L83 50 64 35Z" fill="url(#wallet-cash)" stroke="#35a779" strokeWidth="3" />
+        <path d="M73 29c17-7 34-7 48 2" stroke="#fff" strokeLinecap="round" strokeWidth="4" />
+        <circle cx="46" cy="90" r="13" fill="#ffd166" stroke="#f59e0b" strokeWidth="3" />
+        <path d="M39 90h14M46 83v14" stroke="#b87503" strokeLinecap="round" strokeWidth="3" />
+        <path d="m28 55 4-8 4 8 8 4-8 4-4 8-4-8-8-4 8-4Z" fill="#ffd166" />
+      </g>
     </svg>
   );
 }
