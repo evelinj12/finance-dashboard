@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CatMascot, CoinStack, WalletIllustration } from "@/components/cozy-illustrations";
+import { GoalProgressDonut } from "@/components/goal-progress-donut";
 import { Money } from "@/components/money";
 import { NetWorthTrendChart } from "@/components/net-worth-trend-chart";
 import { createClient } from "@/lib/supabase/server";
@@ -48,6 +49,30 @@ function QuickLogCard({
       </div>
       <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
     </Link>
+  );
+}
+
+function SavingHealthDonut({ progress, label }: { progress: number; label: string }) {
+  const clampedProgress = Math.min(100, Math.max(0, progress));
+  const labelClassName = label.length > 4 ? "text-lg" : "text-3xl";
+  const helperLabel = label.length > 4 ? "status" : "saved";
+
+  return (
+    <div
+      aria-label={`Saving health ${label}`}
+      className="relative grid size-36 place-items-center rounded-full shadow-sm shadow-sky-950/10"
+      role="img"
+      style={{
+        background: `conic-gradient(var(--primary) ${clampedProgress}%, rgba(255,255,255,.9) 0)`,
+      }}
+    >
+      <div className="grid size-24 place-items-center rounded-full bg-white">
+        <div className="text-center">
+          <p className={`${labelClassName} font-bold money-figures`}>{label}</p>
+          <p className="text-xs font-semibold text-muted-foreground">{helperLabel}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -134,8 +159,8 @@ export default async function OverviewPage() {
                 />
                 <QuickLogCard
                   href="/team"
-                  title="Team work"
-                  description="Kevin payout"
+                  title="Team payout"
+                  description="Track owed and paid"
                   accent="bg-orange-100 text-orange-700"
                   icon={Users}
                 />
@@ -148,7 +173,7 @@ export default async function OverviewPage() {
         </Card>
 
         <Card className="bg-[color:var(--surface-blue)]">
-          <CardContent className="flex h-full flex-col justify-between gap-5 p-5">
+          <CardContent className="flex h-full flex-col gap-5 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-muted-foreground">Saving Health</p>
@@ -158,17 +183,17 @@ export default async function OverviewPage() {
                 <HeartPulse className="size-6" />
               </span>
             </div>
-            <div>
-              <div className="relative h-3 overflow-hidden rounded-full bg-white">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${savingProgress}%` }} />
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">
+            <div className="grid flex-1 items-center gap-4 sm:grid-cols-[auto_1fr] lg:grid-cols-1 xl:grid-cols-[auto_1fr]">
+              <SavingHealthDonut progress={savingProgress} label={savingPercent} />
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-muted-foreground">
                 {savingHealthIdentified
                   ? `${savingHealthStatus(savingHealthRatio, netAfterSavings)} - Target: more than 50%`
                   : "Waiting for complete income and budget data."}
-              </p>
+                </p>
+                <CatMascot className="w-28" />
+              </div>
             </div>
-            <CatMascot className="self-end" />
           </CardContent>
         </Card>
       </section>
@@ -272,12 +297,12 @@ export default async function OverviewPage() {
           </CardHeader>
           <CardContent>
             {goalTarget > 0 ? (
-              <>
-                <Progress value={goalProgressPct} className="mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  <Money amountIdr={latestNetWorth} /> of <Money amountIdr={goalTarget} /> ({goalProgressPct.toFixed(0)}%)
-                </p>
-              </>
+              <GoalProgressDonut
+                currentAmountIdr={latestNetWorth}
+                progressPct={goalProgressPct}
+                targetAmountIdr={goalTarget}
+                year={currentYear}
+              />
             ) : (
               <p className="text-sm text-muted-foreground">
                 No {currentYear} net worth goal set.{" "}
@@ -287,7 +312,7 @@ export default async function OverviewPage() {
                 .
               </p>
             )}
-            <CoinStack className="mt-4 ml-auto w-28" />
+            {goalTarget > 0 ? null : <CoinStack className="mt-4 ml-auto w-28" />}
           </CardContent>
         </Card>
       </div>

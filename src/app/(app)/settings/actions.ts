@@ -108,10 +108,17 @@ export async function deleteSinkingFund(id: string) {
 }
 
 export async function setNetWorthGoal(year: number, targetAmount: number) {
+  if (!Number.isInteger(year) || year < 2025 || year > 2100) {
+    throw new Error("Choose a valid goal year");
+  }
+  if (!Number.isFinite(targetAmount) || targetAmount < 0) {
+    throw new Error("Goal amount must be zero or more");
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("goals")
-    .upsert({ type: "net_worth", year, target_amount: targetAmount }, { onConflict: "type,year" });
+    .upsert({ type: "net_worth", year, target_amount: Math.round(targetAmount) }, { onConflict: "type,year" });
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
   revalidatePath("/");

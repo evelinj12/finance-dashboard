@@ -71,6 +71,10 @@ export function TransactionDialog({
   const [notes, setNotes] = useState(transaction?.notes ?? "");
   const [saveTo, setSaveTo] = useState(transaction?.save_to ?? "");
   const router = useRouter();
+  const categoryItems = categories.map((category) => ({
+    value: category.id,
+    label: `${category.name} - ${tagLabels[category.tag] ?? category.tag}`,
+  }));
 
   async function handleSave() {
     if (!categoryId || !money.amount) {
@@ -138,14 +142,14 @@ export function TransactionDialog({
 
           <div className="flex flex-col gap-2">
             <Label>Category</Label>
-            <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
+            <Select items={categoryItems} value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name} — {tagLabels[c.tag] ?? c.tag}
+                    {c.name} - {tagLabels[c.tag] ?? c.tag}
                   </SelectItem>
                 ))}
               </SelectContent>

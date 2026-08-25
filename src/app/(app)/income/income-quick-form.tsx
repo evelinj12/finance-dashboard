@@ -37,6 +37,7 @@ export function IncomeQuickForm({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const sourceItems = sources.map((source) => ({ value: source.id, label: source.name }));
 
   function resetForm() {
     setSourceId("");
@@ -108,7 +109,7 @@ export function IncomeQuickForm({
             </div>
             <div className="flex flex-col gap-2">
               <Label>Client/source</Label>
-              <Select value={sourceId} onValueChange={(value) => setSourceId(value ?? "")}>
+              <Select items={sourceItems} value={sourceId} onValueChange={(value) => setSourceId(value ?? "")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select source" />
                 </SelectTrigger>

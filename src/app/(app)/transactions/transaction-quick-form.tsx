@@ -41,6 +41,10 @@ export function TransactionQuickForm({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const categoryItems = categories.map((category) => ({
+    value: category.id,
+    label: `${category.name} - ${tagLabels[category.tag] ?? category.tag}`,
+  }));
 
   function resetForm() {
     setDate(selectedMonth);
@@ -103,7 +107,7 @@ export function TransactionQuickForm({
             </div>
             <div className="flex flex-col gap-2">
               <Label>Category</Label>
-              <Select value={categoryId} onValueChange={(value) => setCategoryId(value ?? "")}>
+              <Select items={categoryItems} value={categoryId} onValueChange={(value) => setCategoryId(value ?? "")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>

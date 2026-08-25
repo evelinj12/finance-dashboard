@@ -81,6 +81,11 @@ export function TeamWorkDialog({
   const [paidAt, setPaidAt] = useState(entry?.paid_at ?? "");
   const [notes, setNotes] = useState(entry?.notes ?? "");
   const router = useRouter();
+  const memberItems = activeMembers.map((member) => ({ value: member.id, label: member.name }));
+  const sourceItems = [
+    { value: "none", label: "No client" },
+    ...sources.map((source) => ({ value: source.id, label: source.name })),
+  ];
 
   function buildInput(): TeamWorkEntryInput | null {
     const amount = Number(money.amount);
@@ -153,7 +158,7 @@ export function TeamWorkDialog({
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="flex flex-col gap-2">
               <Label>Member</Label>
-              <Select value={memberId} onValueChange={(value) => setMemberId(value ?? "")}>
+              <Select items={memberItems} value={memberId} onValueChange={(value) => setMemberId(value ?? "")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select member" />
                 </SelectTrigger>
@@ -168,7 +173,7 @@ export function TeamWorkDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label>Client</Label>
-              <Select value={sourceId} onValueChange={(value) => setSourceId(value ?? "none")}>
+              <Select items={sourceItems} value={sourceId} onValueChange={(value) => setSourceId(value ?? "none")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

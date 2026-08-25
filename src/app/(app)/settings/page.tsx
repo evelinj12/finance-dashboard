@@ -12,10 +12,14 @@ export default async function SettingsPage() {
   const supabase = await createClient();
   const currentYear = new Date().getFullYear();
 
-  const [{ data: categories }, { data: sinkingFunds }, { data: goal }, navPreferences] = await Promise.all([
+  const [{ data: categories }, { data: sinkingFunds }, { data: goals }, navPreferences] = await Promise.all([
     supabase.from("categories").select("id, name, tag, active").order("sort_order"),
     supabase.from("sinking_funds").select("id, name, monthly_amount, due_date, rolling, notes").order("name"),
-    supabase.from("goals").select("target_amount").eq("type", "net_worth").eq("year", currentYear).maybeSingle(),
+    supabase
+      .from("goals")
+      .select("year, target_amount")
+      .eq("type", "net_worth")
+      .order("year", { ascending: true }),
     getNavPreferences(),
   ]);
 
@@ -60,7 +64,7 @@ export default async function SettingsPage() {
               <CardTitle>Yearly goals</CardTitle>
             </CardHeader>
             <CardContent>
-              <GoalSection year={currentYear} currentTarget={goal?.target_amount ?? 0} />
+              <GoalSection currentYear={currentYear} goals={goals ?? []} />
             </CardContent>
           </Card>
         </TabsContent>

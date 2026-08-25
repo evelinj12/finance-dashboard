@@ -65,6 +65,7 @@ export function IncomeDialog({
   );
   const [totalHours, setTotalHours] = useState(income?.total_hours == null ? "" : String(income.total_hours));
   const router = useRouter();
+  const sourceItems = sources.map((source) => ({ value: source.id, label: source.name }));
 
   async function handleSave() {
     if (!sourceId || !money.amount) {
@@ -114,7 +115,7 @@ export function IncomeDialog({
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label>Source</Label>
-            <Select value={sourceId} onValueChange={(v) => setSourceId(v ?? "")}>
+            <Select items={sourceItems} value={sourceId} onValueChange={(v) => setSourceId(v ?? "")}>
               <SelectTrigger>
                 <SelectValue placeholder="Select source" />
               </SelectTrigger>

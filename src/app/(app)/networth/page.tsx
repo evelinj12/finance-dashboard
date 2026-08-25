@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { GoalProgressDonut } from "@/components/goal-progress-donut";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Money } from "@/components/money";
 import { NetWorthTrendChart } from "@/components/net-worth-trend-chart";
@@ -138,19 +138,18 @@ export default async function NetWorthPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-b from-white to-sky-50/70">
           <CardHeader>
             <CardTitle>{currentYear} goal</CardTitle>
           </CardHeader>
           <CardContent>
             {goalTarget > 0 && latest ? (
-              <>
-                <Progress value={goalProgressPct} className="mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  <Money amountIdr={latest.net_worth} /> of <Money amountIdr={goalTarget} /> (
-                  {goalProgressPct.toFixed(0)}%)
-                </p>
-              </>
+              <GoalProgressDonut
+                year={currentYear}
+                currentAmountIdr={latest.net_worth}
+                targetAmountIdr={goalTarget}
+                progressPct={goalProgressPct}
+              />
             ) : (
               <p className="text-sm text-muted-foreground">
                 Set a {currentYear} net worth goal in Settings.
@@ -163,7 +162,7 @@ export default async function NetWorthPage() {
       {latest ? (
         <Card>
           <CardHeader>
-            <CardTitle>Latest breakdown — {formatMonthLabel(latest.month)}</CardTitle>
+            <CardTitle>Latest breakdown - {formatMonthLabel(latest.month)}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <div className="grid gap-4 md:grid-cols-2">

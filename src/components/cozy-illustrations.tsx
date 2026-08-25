@@ -33,18 +33,36 @@ export function BrandMark({ className }: { className?: string }) {
 export function CatMascot({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 180 130" className={cn("h-auto w-36", className)} fill="none" aria-hidden="true">
-      <path d="M20 110c21-18 116-20 142 0" stroke="#c9e8ff" strokeWidth="8" strokeLinecap="round" />
-      <path d="M47 52c0-19 15-34 35-34h16c20 0 35 15 35 34v25c0 22-18 39-41 39h-4c-23 0-41-17-41-39V52Z" fill="#fff" stroke="#8ecbff" strokeWidth="4" />
-      <path d="m55 28-7-20 23 13M125 28l7-20-23 13" fill="#fff" stroke="#8ecbff" strokeWidth="4" strokeLinejoin="round" />
-      <path d="M68 60h.1M112 60h.1" stroke="#18345c" strokeWidth="7" strokeLinecap="round" />
-      <path d="M85 72c2.5 2 7.5 2 10 0" stroke="#18345c" strokeWidth="3" strokeLinecap="round" />
-      <path d="M77 82c7 6 19 6 26 0" stroke="#ff8c8c" strokeWidth="3" strokeLinecap="round" />
-      <path d="M58 72H37M62 80H40M122 72h21M118 80h22" stroke="#8ca8c8" strokeWidth="3" strokeLinecap="round" />
-      <path d="M128 94c11 1 20-1 26-7 7-7 6-17-2-20-7-2-13 2-13 8" stroke="#8ecbff" strokeWidth="6" strokeLinecap="round" />
-      <circle cx="140" cy="98" r="18" fill="#ffd166" stroke="#f59e0b" strokeWidth="3" />
-      <path d="M132 98h16M140 90v16" stroke="#b87503" strokeWidth="3" strokeLinecap="round" />
-      <path d="M31 103c-3-10 7-20 17-15" stroke="#9bd7b5" strokeWidth="5" strokeLinecap="round" />
-      <path d="M31 103c8-2 13-8 15-16" stroke="#9bd7b5" strokeWidth="3" strokeLinecap="round" />
+      <ellipse cx="91" cy="113" rx="58" ry="10" fill="#c9e8ff" opacity=".75" />
+      <path
+        d="M48 75c0-24 19-43 43-43h11c21 0 38 17 38 38v4c0 27-22 49-49 49S48 102 48 75Z"
+        fill="#fff"
+        stroke="#8ecbff"
+        strokeWidth="4"
+      />
+      <path
+        d="m61 42-6-23 23 13M120 41l9-22 16 22"
+        fill="#fff"
+        stroke="#8ecbff"
+        strokeLinejoin="round"
+        strokeWidth="4"
+      />
+      <path d="M70 70c5 5 12 5 17 0M102 70c5 5 12 5 17 0" stroke="#18345c" strokeLinecap="round" strokeWidth="4" />
+      <path d="M90 80c3 2 7 2 10 0" stroke="#18345c" strokeLinecap="round" strokeWidth="3" />
+      <path d="M84 89c7 5 16 5 23 0" stroke="#ff8c8c" strokeLinecap="round" strokeWidth="3" />
+      <circle cx="66" cy="83" r="5" fill="#ffd1d8" />
+      <circle cx="122" cy="83" r="5" fill="#ffd1d8" />
+      <path d="M60 82H39M61 90H43M129 82h18M127 90h20" stroke="#8ca8c8" strokeLinecap="round" strokeWidth="3" />
+      <path
+        d="M47 88c-14-4-22 3-22 13 0 9 9 15 21 10"
+        stroke="#8ecbff"
+        strokeLinecap="round"
+        strokeWidth="7"
+      />
+      <circle cx="136" cy="101" r="16" fill="#ffd166" stroke="#f59e0b" strokeWidth="3" />
+      <path d="M128 101h16M136 93v16" stroke="#b87503" strokeLinecap="round" strokeWidth="3" />
+      <path d="M31 105c-2-10 7-18 17-13" stroke="#9bd7b5" strokeLinecap="round" strokeWidth="5" />
+      <path d="M31 105c8-2 13-8 15-15" stroke="#9bd7b5" strokeLinecap="round" strokeWidth="3" />
     </svg>
   );
 }
