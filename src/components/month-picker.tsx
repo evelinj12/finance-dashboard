@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { formatMonthLabel, shiftMonth } from "@/lib/dates";
 
-export function MonthPicker({ month }: { month: string }) {
+export function MonthPicker({ month, resetParamsOnChange = [] }: { month: string; resetParamsOnChange?: string[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -13,6 +13,7 @@ export function MonthPicker({ month }: { month: string }) {
   function goTo(newMonth: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("month", newMonth);
+    resetParamsOnChange.forEach((param) => params.delete(param));
     router.push(`${pathname}?${params.toString()}`);
   }
 
