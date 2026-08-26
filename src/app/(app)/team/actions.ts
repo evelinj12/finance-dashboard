@@ -46,8 +46,8 @@ function validateTeamWorkEntry(input: TeamWorkEntryInput) {
   if (!input.date) {
     throw new Error("Date is required");
   }
-  if (!Number.isFinite(input.amount) || input.amount <= 0) {
-    throw new Error("Amount must be greater than zero");
+  if (!Number.isFinite(input.amount) || input.amount === 0) {
+    throw new Error("Amount cannot be zero");
   }
   if (!Number.isFinite(input.fx_rate) || input.fx_rate <= 0) {
     throw new Error("FX rate must be greater than zero");
@@ -63,8 +63,8 @@ function validateTeamWorkEntry(input: TeamWorkEntryInput) {
 function normalizeTeamWorkEntry(input: TeamWorkEntryInput) {
   validateTeamWorkEntry(input);
   const amountIdr = Math.round(input.amount * input.fx_rate);
-  if (!Number.isFinite(amountIdr) || amountIdr <= 0) {
-    throw new Error("Amount in IDR must be greater than zero");
+  if (!Number.isFinite(amountIdr) || amountIdr === 0) {
+    throw new Error("Amount in IDR cannot be zero");
   }
 
   return {

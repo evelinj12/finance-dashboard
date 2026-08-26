@@ -18,6 +18,8 @@ import {
   type IncomeSummaryTransaction,
 } from "./income-summary";
 import { DeleteIncomeButton } from "./delete-income-button";
+import { DeleteTeamWorkButton } from "../team/delete-team-work-button";
+import { TeamWorkDialog } from "../team/team-work-dialog";
 
 type IncomePageTransaction = IncomeSummaryTransaction & {
   date: string;
@@ -27,6 +29,63 @@ type IncomePageTransaction = IncomeSummaryTransaction & {
   fx_rate: number;
   status: string | null;
 };
+
+type RelatedName = {
+  name: string;
+  type?: string | null;
+};
+
+type IncomePageTeamEntry = IncomeSummaryTeamEntry & {
+  team_member_id: string;
+  date: string;
+  description: string | null;
+  work_period: string | null;
+  amount: number;
+  currency: string;
+  fx_rate: number;
+  status: "owed" | "paid";
+  paid_at: string | null;
+  notes: string | null;
+  team_member: RelatedName | RelatedName[] | null;
+};
+
+const teamStatusLabels = {
+  owed: "Owed",
+  paid: "Paid",
+};
+
+function relatedName(value: RelatedName | RelatedName[] | null): string {
+  if (Array.isArray(value)) return value[0]?.name ?? "-";
+  return value?.name ?? "-";
+}
+
+function relatedType(value: RelatedName | RelatedName[] | null): string | null {
+  if (Array.isArray(value)) return value[0]?.type ?? null;
+  return value?.type ?? null;
+}
+
+function entrySourceOption(
+  entry: {
+    income_source_id: string | null;
+    income_source: RelatedName | RelatedName[] | null;
+  },
+  sources: { id: string; name: string; type: string }[]
+) {
+  if (!entry.income_source_id || sources.some((source) => source.id === entry.income_source_id)) {
+    return sources;
+  }
+
+  if (relatedType(entry.income_source) !== "freelance_client") return sources;
+
+  return [
+    ...sources,
+    {
+      id: entry.income_source_id,
+      name: relatedName(entry.income_source),
+      type: "freelance_client",
+    },
+  ];
+}
 
 function queryErrorMessage(error: unknown): string {
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
@@ -47,11 +106,13 @@ export default async function IncomePage({
   const supabase = await createClient();
   const [
     { data: sources, error: sourcesError },
+    { data: members, error: membersError },
     { data: incomeTx, error: incomeTxError },
     { data: teamEntries, error: teamEntriesError },
     { data: summary, error: summaryError },
   ] = await Promise.all([
     supabase.from("income_sources").select("id, name, type, visible_in_active_breakdown").eq("active", true).order("name"),
+    supabase.from("team_members").select("id, name, active, default_currency").order("name"),
     supabase
       .from("income_transactions")
       .select(
@@ -62,14 +123,18 @@ export default async function IncomePage({
       .order("date", { ascending: false }),
     supabase
       .from("team_work_entries")
-      .select("id, income_source_id, amount_idr, hours, income_source:income_sources(name, type)")
+      .select(
+        "id, team_member_id, income_source_id, date, description, work_period, hours, amount, currency, fx_rate, amount_idr, status, paid_at, notes, team_member:team_members(name), income_source:income_sources(name, type)"
+      )
       .gte("date", start)
-      .lt("date", end),
+      .lt("date", end)
+      .order("date", { ascending: false }),
     supabase.from("monthly_finance_summary_v3").select("*").eq("month", month).maybeSingle(),
   ]);
 
   const queryErrors = [
     ["income sources", sourcesError],
+    ["team members", membersError],
     ["income transactions", incomeTxError],
     ["team work entries", teamEntriesError],
     ["monthly summary", summaryError],
@@ -82,10 +147,15 @@ export default async function IncomePage({
   }
 
   const sourceList = sources ?? [];
+  const memberList = members ?? [];
   const incomeList = (incomeTx ?? []) as IncomePageTransaction[];
+  const teamEntryList = (teamEntries ?? []) as IncomePageTeamEntry[];
+  const teamSourceList = sourceList
+    .filter((source) => source.type === "freelance_client")
+    .map((source) => ({ id: source.id, name: source.name, type: source.type }));
   const incomeSummary = buildIncomeSummary({
     incomeTransactions: incomeList,
-    teamEntries: (teamEntries ?? []) as IncomeSummaryTeamEntry[],
+    teamEntries: teamEntryList,
   });
   const hiddenActiveClientIncomeIdr = summary?.active_hidden_income_idr ?? 0;
   const inactiveHistoricalClientIncomeIdr = Math.max(
@@ -172,7 +242,7 @@ export default async function IncomePage({
         </Card>
       </div>
       <p className="text-sm text-muted-foreground">
-        Monthly income is gross income before Team payout. Client summary shows Gross money, Team money, and Net money so your own income is visible after Team deduction.
+        Monthly income is gross income before Team payout. Client summary combines income submissions and Team deductions so your own income is visible after Team deduction.
       </p>
 
       <Card>
@@ -223,6 +293,9 @@ export default async function IncomePage({
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle>Income submissions</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -272,6 +345,69 @@ export default async function IncomePage({
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No income logged this month yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Team deductions included in this summary</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Member</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Work period</TableHead>
+                <TableHead className="text-right">Hours</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="w-24" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {teamEntryList.map((entry) => (
+                <TableRow key={entry.id}>
+                  <TableCell className="whitespace-nowrap">{entry.date}</TableCell>
+                  <TableCell>{relatedName(entry.team_member)}</TableCell>
+                  <TableCell>{relatedName(entry.income_source)}</TableCell>
+                  <TableCell className="text-muted-foreground">{entry.description ?? "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">{entry.work_period ?? "-"}</TableCell>
+                  <TableCell className="text-right tabular-nums">{entry.hours?.toLocaleString() ?? "-"}</TableCell>
+                  <TableCell>
+                    <Badge variant={entry.status === "owed" ? "destructive" : "secondary"}>
+                      {teamStatusLabels[entry.status]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Money amountIdr={entry.amount_idr} />
+                  </TableCell>
+                  <TableCell className="flex items-center justify-end gap-1">
+                    <TeamWorkDialog
+                      members={memberList}
+                      sources={entrySourceOption(entry, teamSourceList)}
+                      entry={entry}
+                      trigger={
+                        <Button variant="ghost" size="sm">
+                          Edit
+                        </Button>
+                      }
+                    />
+                    <DeleteTeamWorkButton id={entry.id} />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {teamEntryList.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    No Team deductions affect this month&apos;s income summary.
                   </TableCell>
                 </TableRow>
               )}
