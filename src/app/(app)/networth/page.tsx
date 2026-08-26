@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalProgressDonut } from "@/components/goal-progress-donut";
@@ -249,8 +249,8 @@ export default async function NetWorthPage() {
                       categories={categoryRows}
                       categoryValues={valuesBySnapshot.get(s.id) ?? []}
                       trigger={
-                        <Button variant="ghost" size="sm">
-                          Edit
+                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${formatMonthLabel(s.month)} snapshot`}>
+                          <Pencil className="size-4" />
                         </Button>
                       }
                     />

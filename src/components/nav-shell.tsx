@@ -9,6 +9,7 @@ export const DEFAULT_NAV_LINKS: NavLink[] = [
   { id: "transactions", href: "/transactions", label: "Transactions" },
   { id: "income", href: "/income", label: "Income" },
   { id: "team", href: "/team", label: "Team" },
+  { id: "family", href: "/family", label: "Family" },
   { id: "networth", href: "/networth", label: "Net Worth" },
   { id: "exports", href: "/exports", label: "Exports" },
   { id: "settings", href: "/settings", label: "Settings" },

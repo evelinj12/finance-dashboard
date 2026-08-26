@@ -31,10 +31,10 @@ const navIcons = {
   transactions: ReceiptText,
   income: WalletCards,
   team: Users,
+  family: HandCoins,
   networth: BarChart3,
   exports: Download,
   settings: Settings,
-  brother: HandCoins,
 } satisfies Record<string, ComponentType<{ className?: string }>>;
 
 export function Nav({ links }: { links: NavLink[] }) {

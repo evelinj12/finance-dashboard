@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -260,8 +261,8 @@ export default async function TransactionsPage({
                         categories={categoryList}
                         transaction={t}
                         trigger={
-                          <Button variant="ghost" size="sm">
-                            Edit
+                          <Button variant="ghost" size="icon-sm" aria-label="Edit transaction">
+                            <Pencil className="size-4" />
                           </Button>
                         }
                       />

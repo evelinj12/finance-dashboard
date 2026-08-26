@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CategoriesSection } from "./categories-section";
 import { SinkingFundsSection } from "./sinking-funds-section";
 import { FixedTransactionsSection } from "./fixed-transactions-section";
+import { IncomeSourcesSection } from "./income-sources-section";
 import { GoalSection } from "./goal-section";
 import { CurrencySection } from "./currency-section";
 import { NavPreferencesSection } from "./nav-preferences-section";
@@ -13,13 +14,26 @@ export default async function SettingsPage() {
   const supabase = await createClient();
   const currentYear = new Date().getFullYear();
 
-  const [{ data: categories }, { data: sinkingFunds }, { data: fixedTransactions }, { data: goals }, navPreferences] = await Promise.all([
+  const [
+    { data: categories },
+    { data: sinkingFunds },
+    { data: fixedTransactions },
+    { data: incomeSources },
+    { data: goals },
+    navPreferences,
+  ] = await Promise.all([
     supabase.from("categories").select("id, name, tag, active").order("sort_order"),
     supabase.from("sinking_funds").select("id, name, monthly_amount, due_date, rolling, notes").order("name"),
     supabase
       .from("fixed_transactions")
       .select("id, category_id, name, monthly_amount, due_day, active, notes, category:categories(name)")
       .order("active", { ascending: false })
+      .order("name"),
+    supabase
+      .from("income_sources")
+      .select("id, name, type, notes, active, visible_in_active_breakdown")
+      .order("active", { ascending: false })
+      .order("type")
       .order("name"),
     supabase
       .from("goals")
@@ -36,6 +50,7 @@ export default async function SettingsPage() {
       <Tabs defaultValue="categories">
         <TabsList>
           <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="income-sources">Income Sources</TabsTrigger>
           <TabsTrigger value="sinking-funds">Sinking Funds</TabsTrigger>
           <TabsTrigger value="fixed-transactions">Fixed Transactions</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
@@ -50,6 +65,17 @@ export default async function SettingsPage() {
             </CardHeader>
             <CardContent>
               <CategoriesSection categories={categories ?? []} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="income-sources">
+          <Card>
+            <CardHeader>
+              <CardTitle>Income sources</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <IncomeSourcesSection sources={incomeSources ?? []} />
             </CardContent>
           </Card>
         </TabsContent>

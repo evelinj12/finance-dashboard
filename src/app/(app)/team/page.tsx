@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -300,8 +300,8 @@ export default async function TeamPage({
                       <TeamMemberDialog
                         member={member}
                         trigger={
-                          <Button variant="ghost" size="sm">
-                            Edit
+                          <Button variant="ghost" size="icon-sm" aria-label={`Edit ${member.name}`}>
+                            <Pencil className="size-4" />
                           </Button>
                         }
                       />
@@ -384,8 +384,8 @@ export default async function TeamPage({
                         )}
                         entry={entry}
                         trigger={
-                          <Button variant="ghost" size="sm">
-                            Edit
+                          <Button variant="ghost" size="icon-sm" aria-label="Edit team work entry">
+                            <Pencil className="size-4" />
                           </Button>
                         }
                       />

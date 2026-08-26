@@ -93,9 +93,17 @@ export async function deleteIncomeTransaction(id: string) {
 }
 
 export async function addIncomeSource(name: string, type: "freelance_client" | "digital_product" | "other") {
+  const normalizedName = name.trim();
+  if (!normalizedName) throw new Error("Source name is required");
+  if (!["freelance_client", "digital_product", "other"].includes(type)) {
+    throw new Error("Choose a valid source type");
+  }
+
   const supabase = await createClient();
-  const { data, error } = await supabase.from("income_sources").insert({ name, type }).select().single();
+  const { data, error } = await supabase.from("income_sources").insert({ name: normalizedName, type }).select().single();
   if (error) throw new Error(error.message);
+  revalidatePath("/settings");
   revalidatePath("/income");
+  revalidatePath("/team");
   return data;
 }

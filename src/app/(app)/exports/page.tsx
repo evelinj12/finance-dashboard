@@ -9,6 +9,8 @@ const exports = [
   { dataset: "budgets", title: "Budgets", description: "Monthly category budgets", monthFilter: true },
   { dataset: "income", title: "Income", description: "Income transactions", monthFilter: true },
   { dataset: "team-work", title: "Team Work", description: "Team payout entries", monthFilter: true },
+  { dataset: "family-records", title: "Family Records", description: "Record-only family support ledger", monthFilter: true },
+  { dataset: "family-transfers", title: "Family Transfers", description: "Family transfer status history", monthFilter: true },
   { dataset: "net-worth", title: "Net Worth", description: "Snapshot history", monthFilter: true },
   { dataset: "monthly-summary", title: "Monthly Summary", description: "Finance summary view", monthFilter: true },
   { dataset: "income-sources", title: "Income Sources", description: "Client and product sources", monthFilter: false },

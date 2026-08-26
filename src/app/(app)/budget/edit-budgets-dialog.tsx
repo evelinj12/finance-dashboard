@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,8 +74,9 @@ export function EditBudgetsDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button size="sm" variant="outline">
-            Edit budgets
+          <Button size="sm" variant="outline" aria-label="Edit budgets">
+            <Pencil className="size-4" />
+            Budgets
           </Button>
         }
       />

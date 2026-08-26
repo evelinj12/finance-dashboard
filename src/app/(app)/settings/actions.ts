@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { CategoryTag } from "@/lib/supabase/types";
+import type { CategoryTag, IncomeSourceType } from "@/lib/supabase/types";
 
 const defaultNavOrder = [
   "overview",
@@ -11,6 +11,7 @@ const defaultNavOrder = [
   "transactions",
   "income",
   "team",
+  "family",
   "networth",
   "exports",
   "settings",
@@ -27,12 +28,82 @@ function revalidateNavPaths() {
     "/transactions",
     "/income",
     "/team",
+    "/family",
     "/networth",
     "/exports",
     "/settings",
   ]) {
     revalidatePath(path);
   }
+}
+
+function revalidateIncomeSourcePaths() {
+  for (const path of ["/settings", "/income", "/team", "/exports", "/"]) {
+    revalidatePath(path);
+  }
+}
+
+export interface IncomeSourceInput {
+  name: string;
+  type: IncomeSourceType;
+  notes: string | null;
+  active: boolean;
+  visible_in_active_breakdown: boolean;
+}
+
+function normalizeIncomeSourceInput(input: IncomeSourceInput) {
+  const name = input.name.trim();
+  if (!name) throw new Error("Income source name is required");
+  if (!["freelance_client", "digital_product", "other"].includes(input.type)) {
+    throw new Error("Choose a valid source type");
+  }
+
+  return {
+    name,
+    type: input.type,
+    notes: input.notes?.trim() || null,
+    active: input.active,
+    visible_in_active_breakdown: input.visible_in_active_breakdown,
+  };
+}
+
+export async function addIncomeSourceSetting(input: IncomeSourceInput) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("income_sources").insert(normalizeIncomeSourceInput(input));
+  if (error) throw new Error(error.message);
+  revalidateIncomeSourcePaths();
+}
+
+export async function updateIncomeSource(id: string, input: IncomeSourceInput) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("income_sources").update(normalizeIncomeSourceInput(input)).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateIncomeSourcePaths();
+}
+
+export async function setIncomeSourceActive(id: string, active: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("income_sources").update({ active }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateIncomeSourcePaths();
+}
+
+export async function deleteIncomeSource(id: string) {
+  const supabase = await createClient();
+  const [{ count: incomeCount, error: incomeError }, { count: teamCount, error: teamError }] = await Promise.all([
+    supabase.from("income_transactions").select("id", { count: "exact", head: true }).eq("income_source_id", id),
+    supabase.from("team_work_entries").select("id", { count: "exact", head: true }).eq("income_source_id", id),
+  ]);
+
+  if (incomeError) throw new Error(incomeError.message);
+  if (teamError) throw new Error(teamError.message);
+  if ((incomeCount ?? 0) + (teamCount ?? 0) > 0) {
+    throw new Error("This source has income or Team entries. Deactivate it instead.");
+  }
+
+  const { error } = await supabase.from("income_sources").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateIncomeSourcePaths();
 }
 
 export async function addCategory(name: string, tag: CategoryTag) {

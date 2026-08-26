@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -331,8 +332,8 @@ export default async function IncomePage({
                         sources={sourceList}
                         income={t}
                         trigger={
-                          <Button variant="ghost" size="sm">
-                            Edit
+                          <Button variant="ghost" size="icon-sm" aria-label="Edit income submission">
+                            <Pencil className="size-4" />
                           </Button>
                         }
                       />
@@ -395,8 +396,8 @@ export default async function IncomePage({
                       sources={entrySourceOption(entry, teamSourceList)}
                       entry={entry}
                       trigger={
-                        <Button variant="ghost" size="sm">
-                          Edit
+                        <Button variant="ghost" size="icon-sm" aria-label="Edit team deduction">
+                          <Pencil className="size-4" />
                         </Button>
                       }
                     />

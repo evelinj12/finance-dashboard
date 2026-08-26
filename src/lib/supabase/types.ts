@@ -19,6 +19,8 @@ export type IncomeSourceType = "freelance_client" | "digital_product" | "other";
 export type IncomePaymentStatus = "waiting" | "paid";
 export type ContractorPaymentStatus = "owed" | "paid" | "transferred" | "unknown";
 export type TeamWorkStatus = "owed" | "paid";
+export type FamilySupportDirection = "add" | "deduct";
+export type FamilyTransferStatus = "not_transferred" | "transferred";
 export type NetWorthBreakdownQuality = "full" | "total_only";
 export type NetWorthCategoryGroup = "asset" | "liability";
 export type GoalType = "net_worth" | "income" | "savings";
@@ -376,6 +378,53 @@ export interface Database {
           body: string;
         };
         Update: Partial<Database["public"]["Tables"]["sticky_notes"]["Row"]>;
+        Relationships: [];
+      };
+      family_support_entries: {
+        Row: {
+          id: string;
+          month: string;
+          entry_date: string | null;
+          person: string;
+          direction: FamilySupportDirection;
+          description: string;
+          amount: number;
+          currency: string;
+          fx_rate: number;
+          amount_idr: number;
+          notes: string | null;
+          source_sheet: string | null;
+          source_row: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["family_support_entries"]["Row"]> & {
+          month: string;
+          person: string;
+          direction: FamilySupportDirection;
+          description: string;
+          amount: number;
+          amount_idr: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["family_support_entries"]["Row"]>;
+        Relationships: [];
+      };
+      family_support_transfers: {
+        Row: {
+          id: string;
+          month: string;
+          person: string;
+          status: FamilyTransferStatus;
+          transferred_at: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["family_support_transfers"]["Row"]> & {
+          month: string;
+          person: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["family_support_transfers"]["Row"]>;
         Relationships: [];
       };
       net_worth_snapshots: {

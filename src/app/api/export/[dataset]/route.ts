@@ -53,6 +53,18 @@ async function queryDataset(
       const { data, error } = await supabase.from("team_members").select("*").limit(10000);
       return error ? { rows: null, error: error.message } : { rows: asCsvRows(data) };
     }
+    case "family-records": {
+      let query = supabase.from("family_support_entries").select("*").limit(10000);
+      if (month) query = query.eq("month", month);
+      const { data, error } = await query;
+      return error ? { rows: null, error: error.message } : { rows: asCsvRows(data) };
+    }
+    case "family-transfers": {
+      let query = supabase.from("family_support_transfers").select("*").limit(10000);
+      if (month) query = query.eq("month", month);
+      const { data, error } = await query;
+      return error ? { rows: null, error: error.message } : { rows: asCsvRows(data) };
+    }
     case "kevin-payouts": {
       let query = supabase.from("contractor_payments").select("*").limit(10000);
       if (start && end) query = query.gte("date", start).lt("date", end);
