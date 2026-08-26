@@ -317,6 +317,19 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["dashboard_preferences"]["Row"]>;
         Relationships: [];
       };
+      sticky_notes: {
+        Row: {
+          id: string;
+          body: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sticky_notes"]["Row"]> & {
+          body: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sticky_notes"]["Row"]>;
+        Relationships: [];
+      };
       net_worth_snapshots: {
         Row: {
           id: string;
