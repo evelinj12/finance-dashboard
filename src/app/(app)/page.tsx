@@ -10,13 +10,14 @@ import {
 import { DashboardMonthSelect, NetWorthRangeSelect } from "@/components/dashboard-filter-selects";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { CategorySpendingChart } from "@/components/category-spending-chart";
 import { CatMascot, CoinStack, WalletIllustration } from "@/components/cozy-illustrations";
 import { GoalProgressDonut } from "@/components/goal-progress-donut";
 import { Money } from "@/components/money";
 import { NetWorthTrendChart } from "@/components/net-worth-trend-chart";
 import { TimeGreeting } from "@/components/time-greeting";
 import { createClient } from "@/lib/supabase/server";
-import { formatMonthLabel, monthStart, shiftMonth } from "@/lib/dates";
+import { formatMonthLabel, monthRange, monthStart, shiftMonth } from "@/lib/dates";
 import { savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
 
 type NetWorthRange = "6m" | "12m" | "ytd" | "all";
@@ -29,6 +30,16 @@ function normalizeMonthParam(month: string | undefined) {
 
 function normalizeRangeParam(range: string | undefined): NetWorthRange {
   return netWorthRanges.has(range ?? "") ? (range as NetWorthRange) : "12m";
+}
+
+function firstCategory(value: unknown): { name?: string | null; tag?: string | null; sort_order?: number | null } | null {
+  if (Array.isArray(value)) {
+    return firstCategory(value[0]);
+  }
+  if (value && typeof value === "object") {
+    return value as { name?: string | null; tag?: string | null; sort_order?: number | null };
+  }
+  return null;
 }
 
 function filterNetWorthRows(
@@ -114,9 +125,16 @@ export default async function OverviewPage({
   const month = normalizeMonthParam(monthParam);
   const selectedYear = Number(month.slice(0, 4));
   const selectedNetWorthRange = normalizeRangeParam(netWorthRange);
+  const [selectedMonthStart, selectedNextMonthStart] = monthRange(month);
 
-  const [{ data: summary }, { data: summaryMonths }, { data: netWorthHistory }, { data: goal }, { data: sinkingFunds }] =
-    await Promise.all([
+  const [
+    { data: summary },
+    { data: summaryMonths },
+    { data: netWorthHistory },
+    { data: goal },
+    { data: sinkingFunds },
+    { data: spendingTransactions },
+  ] = await Promise.all([
       supabase
         .from("monthly_finance_summary_v3")
         .select("*")
@@ -138,6 +156,12 @@ export default async function OverviewPage({
         .not("due_date", "is", null)
         .order("due_date", { ascending: true })
         .limit(4),
+      supabase
+        .from("transactions")
+        .select("id, amount_idr, category:categories(name, tag, sort_order)")
+        .eq("direction", "out")
+        .gte("date", selectedMonthStart)
+        .lt("date", selectedNextMonthStart),
     ]);
 
   const incomeActual = summary?.total_income_idr ?? 0;
@@ -166,6 +190,29 @@ export default async function OverviewPage({
   const savingProgress = savingHealthIdentified ? Math.min(100, Math.max(0, savingHealthRatio * 100)) : 0;
   const trueExpensePct =
     trueExpensesBudget > 0 ? Math.min(100, Math.max(0, (trueExpensesActual / trueExpensesBudget) * 100)) : 0;
+  const spendingByCategoryMap = new Map<string, { name: string; amountIdr: number; sortOrder: number }>();
+
+  for (const transaction of spendingTransactions ?? []) {
+    const category = firstCategory(transaction.category);
+    const tag = category?.tag ?? "";
+
+    if (tag !== "fixed" && tag !== "spent") continue;
+
+    const name = category?.name ?? "Uncategorized";
+    const existing = spendingByCategoryMap.get(name) ?? {
+      name,
+      amountIdr: 0,
+      sortOrder: category?.sort_order ?? 999,
+    };
+
+    existing.amountIdr += transaction.amount_idr ?? 0;
+    spendingByCategoryMap.set(name, existing);
+  }
+
+  const spendingByCategory = [...spendingByCategoryMap.values()].sort((a, b) => {
+    if (b.amountIdr !== a.amountIdr) return b.amountIdr - a.amountIdr;
+    return a.sortOrder - b.sortOrder;
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -274,12 +321,12 @@ export default async function OverviewPage({
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
               <ShieldCheck className="size-4 text-sky-600" />
-              Net after savings
+              Monthly excess
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Money amountIdr={netAfterSavings} signed className="text-2xl font-bold money-figures" />
-            <p className="mt-1 text-xs text-muted-foreground">After expenses and sinking funds</p>
+            <p className="mt-1 text-xs text-muted-foreground">Income minus true expenses and sinking funds</p>
           </CardContent>
         </Card>
 
@@ -354,6 +401,21 @@ export default async function OverviewPage({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="border-b border-sky-100">
+          <CardTitle className="flex flex-wrap items-end justify-between gap-2">
+            <span>Amount vs. Category</span>
+            <span className="text-sm font-normal text-muted-foreground">{formatMonthLabel(month)}</span>
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            True expenses by category. Sinking funds are tracked separately.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <CategorySpendingChart data={spendingByCategory} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
