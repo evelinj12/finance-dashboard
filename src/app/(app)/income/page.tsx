@@ -1,4 +1,5 @@
-import { Pencil } from "lucide-react";
+import Link from "next/link";
+import { Pencil, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -173,6 +174,17 @@ export default async function IncomePage({
         <div className="flex items-center gap-2">
           <MonthPicker month={month} />
           <AddSourceDialog triggerLabel="Add client" />
+          <Button
+            nativeButton={false}
+            size="sm"
+            variant="outline"
+            render={
+              <Link href="/settings?tab=income-sources">
+                <Settings2 className="size-4" />
+                Manage clients
+              </Link>
+            }
+          />
         </div>
       </div>
 

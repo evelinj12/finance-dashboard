@@ -10,7 +10,23 @@ import { GoalSection } from "./goal-section";
 import { CurrencySection } from "./currency-section";
 import { NavPreferencesSection } from "./nav-preferences-section";
 
-export default async function SettingsPage() {
+const settingsTabs = new Set([
+  "categories",
+  "income-sources",
+  "sinking-funds",
+  "fixed-transactions",
+  "goals",
+  "currency",
+  "navigation",
+]);
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  const defaultTab = tab && settingsTabs.has(tab) ? tab : "categories";
   const supabase = await createClient();
   const currentYear = new Date().getFullYear();
 
@@ -47,7 +63,7 @@ export default async function SettingsPage() {
     <div className="flex flex-col gap-6">
       <h2 className="text-2xl font-semibold">Settings</h2>
 
-      <Tabs defaultValue="categories">
+      <Tabs defaultValue={defaultTab}>
         <TabsList>
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="income-sources">Income Sources</TabsTrigger>
