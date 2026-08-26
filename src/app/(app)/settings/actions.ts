@@ -107,6 +107,74 @@ export async function deleteSinkingFund(id: string) {
   revalidatePath("/");
 }
 
+export interface FixedTransactionInput {
+  category_id: string;
+  name: string;
+  monthly_amount: number;
+  due_day: number;
+  active: boolean;
+  notes: string | null;
+}
+
+function normalizeFixedTransactionInput(input: FixedTransactionInput) {
+  const categoryId = input.category_id.trim();
+  const name = input.name.trim();
+  const monthlyAmount = Number(input.monthly_amount);
+  const dueDay = Number(input.due_day);
+
+  if (!categoryId) throw new Error("Category is required");
+  if (!name) throw new Error("Fixed transaction name is required");
+  if (!Number.isFinite(monthlyAmount) || monthlyAmount < 0) {
+    throw new Error("Monthly amount must be zero or more");
+  }
+  if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
+    throw new Error("Due day must be between 1 and 31");
+  }
+
+  return {
+    category_id: categoryId,
+    name,
+    monthly_amount: Math.round(monthlyAmount),
+    due_day: dueDay,
+    active: input.active,
+    notes: input.notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function addFixedTransaction(input: FixedTransactionInput) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("fixed_transactions").insert(normalizeFixedTransactionInput(input));
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/transactions");
+  revalidatePath("/budget");
+  revalidatePath("/");
+}
+
+export async function updateFixedTransaction(id: string, input: FixedTransactionInput) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("fixed_transactions")
+    .update(normalizeFixedTransactionInput(input))
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/transactions");
+  revalidatePath("/budget");
+  revalidatePath("/");
+}
+
+export async function deleteFixedTransaction(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("fixed_transactions").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/transactions");
+  revalidatePath("/budget");
+  revalidatePath("/");
+}
+
 export async function setNetWorthGoal(year: number, targetAmount: number) {
   if (!Number.isInteger(year) || year < 2025 || year > 2100) {
     throw new Error("Choose a valid goal year");

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { monthRange, monthStart } from "@/lib/dates";
+import type { RecurringTransactionType, TransactionSource } from "@/lib/supabase/types";
 
 export interface TransactionInput {
   date: string;
@@ -13,6 +15,28 @@ export interface TransactionInput {
   amount_idr: number;
   notes: string | null;
   save_to: string | null;
+}
+
+interface ExistingRecurringTransaction {
+  id: string;
+  date: string;
+  source: TransactionSource;
+  recurring_type: RecurringTransactionType | null;
+  recurring_template_id: string | null;
+  generated_month: string | null;
+}
+
+function firstOfMonth(date: string): string {
+  return `${date.slice(0, 7)}-01`;
+}
+
+function daysInMonth(month: string): number {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Date(year, monthNumber, 0).getDate();
+}
+
+function dateForDay(month: string, day: number): string {
+  return `${month.slice(0, 7)}-${String(Math.min(Math.max(day, 1), daysInMonth(month))).padStart(2, "0")}`;
 }
 
 function isDirection(value: unknown): value is TransactionInput["direction"] {
@@ -81,9 +105,160 @@ export async function updateTransaction(id: string, input: TransactionInput) {
 
 export async function deleteTransaction(id: string) {
   const supabase = await createClient();
+  const { data: transaction, error: readError } = await supabase
+    .from("transactions")
+    .select("id, date, source, recurring_type, recurring_template_id, generated_month")
+    .eq("id", id)
+    .maybeSingle<ExistingRecurringTransaction>();
+
+  if (readError) throw new Error(readError.message);
+
   const { error } = await supabase.from("transactions").delete().eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (
+    transaction?.source === "auto_monthly" &&
+    transaction.recurring_type &&
+    transaction.recurring_template_id
+  ) {
+    const { error: skipError } = await supabase.from("recurring_transaction_skips").upsert(
+      {
+        recurring_type: transaction.recurring_type,
+        recurring_template_id: transaction.recurring_template_id,
+        month: transaction.generated_month ?? firstOfMonth(transaction.date),
+      },
+      { onConflict: "recurring_type,recurring_template_id,month" }
+    );
+    if (skipError) throw new Error(skipError.message);
+  }
+
   revalidatePath("/transactions");
   revalidatePath("/budget");
   revalidatePath("/");
+}
+
+export async function ensureMonthlyRecurringTransactions(month: string) {
+  if (!/^\d{4}-\d{2}-01$/.test(month) || month !== monthStart()) {
+    return { created: 0 };
+  }
+
+  const supabase = await createClient();
+  const [start, nextStart] = monthRange(month);
+  const [
+    { data: sinkingFunds, error: sinkingError },
+    { data: fixedTransactions, error: fixedError },
+    { data: existingTransactions, error: existingError },
+    { data: skips, error: skipsError },
+  ] = await Promise.all([
+    supabase
+      .from("sinking_funds")
+      .select("id, category_id, name, monthly_amount, notes")
+      .not("category_id", "is", null)
+      .gt("monthly_amount", 0),
+    supabase
+      .from("fixed_transactions")
+      .select("id, category_id, name, monthly_amount, due_day, notes")
+      .eq("active", true)
+      .gt("monthly_amount", 0),
+    supabase
+      .from("transactions")
+      .select("category_id, amount_idr, source, recurring_type, recurring_template_id")
+      .gte("date", start)
+      .lt("date", nextStart),
+    supabase
+      .from("recurring_transaction_skips")
+      .select("recurring_type, recurring_template_id")
+      .eq("month", month),
+  ]);
+
+  if (sinkingError) throw new Error(sinkingError.message);
+  if (fixedError) throw new Error(fixedError.message);
+  if (existingError) throw new Error(existingError.message);
+  if (skipsError) throw new Error(skipsError.message);
+
+  const existing = existingTransactions ?? [];
+  const skippedKeys = new Set(
+    (skips ?? []).map((skip) => `${skip.recurring_type}:${skip.recurring_template_id}`)
+  );
+
+  function hasExistingRow(
+    recurringType: RecurringTransactionType,
+    templateId: string,
+    categoryId: string,
+    amountIdr: number
+  ) {
+    return existing.some((row) => {
+      if (row.source === "auto_monthly") {
+        return row.recurring_type === recurringType && row.recurring_template_id === templateId;
+      }
+      return row.category_id === categoryId && Number(row.amount_idr) === amountIdr;
+    });
+  }
+
+  const inserts = [
+    ...(sinkingFunds ?? []).flatMap((fund) => {
+      if (!fund.category_id) return [];
+      const amountIdr = Math.round(Number(fund.monthly_amount));
+      if (
+        skippedKeys.has(`sinking_fund:${fund.id}`) ||
+        hasExistingRow("sinking_fund", fund.id, fund.category_id, amountIdr)
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          date: start,
+          category_id: fund.category_id,
+          direction: "out" as const,
+          amount: amountIdr,
+          currency: "IDR",
+          fx_rate: 1,
+          amount_idr: amountIdr,
+          notes: fund.notes || `${fund.name} monthly sinking fund`,
+          save_to: "pasar uang",
+          source: "auto_monthly" as const,
+          recurring_type: "sinking_fund" as const,
+          recurring_template_id: fund.id,
+          generated_month: month,
+        },
+      ];
+    }),
+    ...(fixedTransactions ?? []).flatMap((fixed) => {
+      const amountIdr = Math.round(Number(fixed.monthly_amount));
+      if (
+        skippedKeys.has(`fixed_transaction:${fixed.id}`) ||
+        hasExistingRow("fixed_transaction", fixed.id, fixed.category_id, amountIdr)
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          date: dateForDay(month, fixed.due_day),
+          category_id: fixed.category_id,
+          direction: "out" as const,
+          amount: amountIdr,
+          currency: "IDR",
+          fx_rate: 1,
+          amount_idr: amountIdr,
+          notes: fixed.notes || fixed.name,
+          save_to: null,
+          source: "auto_monthly" as const,
+          recurring_type: "fixed_transaction" as const,
+          recurring_template_id: fixed.id,
+          generated_month: month,
+        },
+      ];
+    }),
+  ];
+
+  if (inserts.length === 0) {
+    return { created: 0 };
+  }
+
+  const { error } = await supabase.from("transactions").insert(inserts);
+  if (error) throw new Error(error.message);
+
+  return { created: inserts.length };
 }

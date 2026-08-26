@@ -13,6 +13,8 @@ export type Json =
 export type CategoryTag = "income" | "sinking_fund" | "fixed" | "spent";
 export type TxDirection = "in" | "out";
 export type EntrySource = "manual" | "import";
+export type TransactionSource = EntrySource | "auto_monthly";
+export type RecurringTransactionType = "sinking_fund" | "fixed_transaction";
 export type IncomeSourceType = "freelance_client" | "digital_product" | "other";
 export type IncomePaymentStatus = "waiting" | "paid";
 export type ContractorPaymentStatus = "owed" | "paid" | "transferred" | "unknown";
@@ -105,9 +107,12 @@ export interface Database {
           amount_idr: number;
           notes: string | null;
           save_to: string | null;
-          source: EntrySource;
+          source: TransactionSource;
           source_sheet: string | null;
           source_row: string | null;
+          recurring_type: RecurringTransactionType | null;
+          recurring_template_id: string | null;
+          generated_month: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["transactions"]["Row"]> & {
@@ -127,6 +132,49 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      fixed_transactions: {
+        Row: {
+          id: string;
+          category_id: string;
+          name: string;
+          monthly_amount: number;
+          due_day: number;
+          active: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["fixed_transactions"]["Row"]> & {
+          category_id: string;
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["fixed_transactions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "fixed_transactions_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      recurring_transaction_skips: {
+        Row: {
+          id: string;
+          recurring_type: RecurringTransactionType;
+          recurring_template_id: string;
+          month: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["recurring_transaction_skips"]["Row"]> & {
+          recurring_type: RecurringTransactionType;
+          recurring_template_id: string;
+          month: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["recurring_transaction_skips"]["Row"]>;
+        Relationships: [];
       };
       income_sources: {
         Row: {

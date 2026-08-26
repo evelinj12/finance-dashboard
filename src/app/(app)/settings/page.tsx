@@ -4,6 +4,7 @@ import { DEFAULT_NAV_LINKS, getNavPreferences } from "@/components/nav-shell";
 import { createClient } from "@/lib/supabase/server";
 import { CategoriesSection } from "./categories-section";
 import { SinkingFundsSection } from "./sinking-funds-section";
+import { FixedTransactionsSection } from "./fixed-transactions-section";
 import { GoalSection } from "./goal-section";
 import { CurrencySection } from "./currency-section";
 import { NavPreferencesSection } from "./nav-preferences-section";
@@ -12,9 +13,14 @@ export default async function SettingsPage() {
   const supabase = await createClient();
   const currentYear = new Date().getFullYear();
 
-  const [{ data: categories }, { data: sinkingFunds }, { data: goals }, navPreferences] = await Promise.all([
+  const [{ data: categories }, { data: sinkingFunds }, { data: fixedTransactions }, { data: goals }, navPreferences] = await Promise.all([
     supabase.from("categories").select("id, name, tag, active").order("sort_order"),
     supabase.from("sinking_funds").select("id, name, monthly_amount, due_date, rolling, notes").order("name"),
+    supabase
+      .from("fixed_transactions")
+      .select("id, category_id, name, monthly_amount, due_day, active, notes, category:categories(name)")
+      .order("active", { ascending: false })
+      .order("name"),
     supabase
       .from("goals")
       .select("year, target_amount")
@@ -31,6 +37,7 @@ export default async function SettingsPage() {
         <TabsList>
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="sinking-funds">Sinking Funds</TabsTrigger>
+          <TabsTrigger value="fixed-transactions">Fixed Transactions</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
           <TabsTrigger value="currency">Currency</TabsTrigger>
           <TabsTrigger value="navigation">Navigation</TabsTrigger>
@@ -54,6 +61,20 @@ export default async function SettingsPage() {
             </CardHeader>
             <CardContent>
               <SinkingFundsSection funds={sinkingFunds ?? []} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="fixed-transactions">
+          <Card>
+            <CardHeader>
+              <CardTitle>Fixed transaction schedule</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FixedTransactionsSection
+                fixedTransactions={fixedTransactions ?? []}
+                categories={(categories ?? []).filter((category) => category.tag === "fixed" && category.active)}
+              />
             </CardContent>
           </Card>
         </TabsContent>
