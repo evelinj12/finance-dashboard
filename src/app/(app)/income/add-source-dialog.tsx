@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { addIncomeSource } from "./actions";
 
-export function AddSourceDialog() {
+export function AddSourceDialog({ triggerLabel = "Add client" }: { triggerLabel?: string }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState<"freelance_client" | "digital_product" | "other">("freelance_client");
@@ -48,13 +49,14 @@ export function AddSourceDialog() {
       <DialogTrigger
         render={
           <Button size="sm" variant="outline">
-            + Client / source
+            <Plus className="size-4" />
+            {triggerLabel}
           </Button>
         }
       />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>New income source</DialogTitle>
+          <DialogTitle>New client or income source</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">

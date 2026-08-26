@@ -349,7 +349,7 @@ export default async function TeamPage({
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Paid at</TableHead>
                 <TableHead>Notes</TableHead>
-                <TableHead className="w-24" />
+                <TableHead className="sticky right-0 z-10 w-24 bg-sky-50/95 text-right shadow-[-10px_0_16px_-16px_rgba(15,47,85,0.45)]" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -371,7 +371,7 @@ export default async function TeamPage({
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">{entry.paid_at ?? "-"}</TableCell>
                   <TableCell className="text-muted-foreground">{entry.notes ?? "-"}</TableCell>
-                  <TableCell>
+                  <TableCell className="sticky right-0 z-10 bg-white/95 shadow-[-10px_0_16px_-16px_rgba(15,47,85,0.45)]">
                     <div className="flex items-center justify-end gap-1">
                       <TeamWorkDialog
                         members={memberList}

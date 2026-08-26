@@ -96,8 +96,8 @@ export function TeamWorkDialog({
       toast.error("Team member is required");
       return null;
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error("Amount must be greater than zero");
+    if (!Number.isFinite(amount) || amount === 0) {
+      toast.error("Amount cannot be 0");
       return null;
     }
     if (!Number.isFinite(fxRate) || fxRate <= 0) {

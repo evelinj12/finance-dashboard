@@ -101,7 +101,7 @@ export default async function IncomePage({
         <h2 className="text-2xl font-semibold">Income</h2>
         <div className="flex items-center gap-2">
           <MonthPicker month={month} />
-          <AddSourceDialog />
+          <AddSourceDialog triggerLabel="Add client" />
         </div>
       </div>
 
@@ -110,11 +110,12 @@ export default async function IncomePage({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Visible active clients</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Net active clients</CardTitle>
           </CardHeader>
           <CardContent>
             <Money amountIdr={summary?.active_visible_income_idr ?? 0} className="text-xl font-semibold" />
             <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+              <p>After Team deduction</p>
               <p>
                 Hidden active: <Money amountIdr={hiddenActiveClientIncomeIdr} />
               </p>
@@ -142,13 +143,15 @@ export default async function IncomePage({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Monthly income</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Monthly income gross</CardTitle>
           </CardHeader>
           <CardContent>
             <Money amountIdr={summary?.total_income_idr ?? 0} className="text-xl font-semibold" />
             {summary?.monthly_rollup_income_idr ? (
               <p className="mt-1 text-xs text-muted-foreground">From monthly rollup</p>
-            ) : null}
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">Before Team payout</p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -169,7 +172,7 @@ export default async function IncomePage({
         </Card>
       </div>
       <p className="text-sm text-muted-foreground">
-        Monthly income follows the imported rollup when available; detailed rows remain available for source analysis and exports.
+        Monthly income is gross income before Team payout. Client summary shows Gross money, Team money, and Net money so your own income is visible after Team deduction.
       </p>
 
       <Card>

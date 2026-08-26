@@ -14,6 +14,7 @@ import { CatMascot, CoinStack, WalletIllustration } from "@/components/cozy-illu
 import { GoalProgressDonut } from "@/components/goal-progress-donut";
 import { Money } from "@/components/money";
 import { NetWorthTrendChart } from "@/components/net-worth-trend-chart";
+import { TimeGreeting } from "@/components/time-greeting";
 import { createClient } from "@/lib/supabase/server";
 import { formatMonthLabel, monthStart, shiftMonth } from "@/lib/dates";
 import { savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
@@ -175,7 +176,7 @@ export default async function OverviewPage({
               <div className="mb-4">
                 <DashboardMonthSelect month={month} months={availableMonths} />
               </div>
-              <h2 className="text-3xl font-bold leading-tight text-foreground sm:text-4xl">Good morning, Evelin</h2>
+              <TimeGreeting name="Evelin" />
               <p className="mt-2 max-w-xl text-base text-muted-foreground">
                 {savingHealthIdentified
                   ? `Saving health is ${savingPercent} for ${formatMonthLabel(month)}.`

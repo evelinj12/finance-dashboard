@@ -4,27 +4,40 @@ export function BrandMark({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm shadow-sky-700/20",
+        "flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-400 to-blue-600 shadow-sm shadow-sky-700/20",
         className
       )}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 48 48" className="size-7" fill="none">
-        <path
-          d="M14.5 20.5c0-4.2 3.4-7.5 7.5-7.5h4c4.1 0 7.5 3.3 7.5 7.5v9c0 4.1-3.4 7.5-7.5 7.5h-4c-4.1 0-7.5-3.4-7.5-7.5v-9Z"
-          fill="currentColor"
-          opacity=".96"
-        />
-        <path d="m17 16-2.8-5.2 7 2.7M31 16l2.8-5.2-7 2.7" fill="currentColor" />
-        <path
-          d="M20.5 25.5h7c1.9 0 3.5 1.6 3.5 3.5s-1.6 3.5-3.5 3.5h-7A3.5 3.5 0 0 1 17 29c0-1.9 1.6-3.5 3.5-3.5Z"
-          fill="#fff"
-          opacity=".95"
-        />
-        <path d="M20 22.5h.1M28 22.5h.1" stroke="#0f2f55" strokeWidth="3" strokeLinecap="round" />
-        <path d="M22.5 29h3" stroke="#0f2f55" strokeWidth="2" strokeLinecap="round" />
-        <path d="M33 33.5c3.6-.4 5.8 1.3 6.5 4.7" stroke="#ffd166" strokeWidth="3" strokeLinecap="round" />
-        <circle cx="39" cy="39" r="5" fill="#ffd166" stroke="#f59e0b" strokeWidth="1.5" />
+      <svg viewBox="0 0 48 48" className="size-8" fill="none">
+        <defs>
+          <radialGradient id="brand-cat-fur" cx="34%" cy="22%" r="76%">
+            <stop stopColor="#ffe1a6" />
+            <stop offset=".58" stopColor="#f8aa3c" />
+            <stop offset="1" stopColor="#dc7b19" />
+          </radialGradient>
+          <filter id="brand-cat-shadow" x="4" y="5" width="40" height="40" colorInterpolationFilters="sRGB">
+            <feDropShadow dx="0" dy="2" stdDeviation="1.6" floodColor="#0f2f55" floodOpacity=".24" />
+          </filter>
+        </defs>
+        <g filter="url(#brand-cat-shadow)">
+          <path d="m13.5 18.5-1.2-8.2 7 4.4M34.5 18.5l1.2-8.2-7 4.4" fill="url(#brand-cat-fur)" />
+          <path
+            d="M11.5 25c0-8 5.6-13.8 12.5-13.8S36.5 17 36.5 25 30.9 38.8 24 38.8 11.5 33 11.5 25Z"
+            fill="url(#brand-cat-fur)"
+          />
+          <path d="m16.2 17.6-.4-3 2.7 1.7M31.8 17.6l.4-3-2.7 1.7" fill="#ffb1b8" opacity=".85" />
+          <circle cx="19.5" cy="25" r="2.2" fill="#102033" />
+          <circle cx="28.5" cy="25" r="2.2" fill="#102033" />
+          <circle cx="18.8" cy="24.2" r=".7" fill="#fff" />
+          <circle cx="27.8" cy="24.2" r=".7" fill="#fff" />
+          <path d="M23 29c.7.5 1.3.5 2 0" stroke="#7c3f12" strokeWidth="1.7" strokeLinecap="round" />
+          <path d="M20.5 31.7c2.1 1.9 4.9 1.9 7 0" stroke="#7c3f12" strokeWidth="1.7" strokeLinecap="round" />
+          <path d="M16.7 28.4h-5.2M17 31.4h-4.2M31.3 28.4h5.2M31 31.4h4.2" stroke="#7c3f12" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M15 21.6c1.8-1.5 4-1.6 5.8-.2M27.2 21.4c1.8-1.4 4-1.3 5.8.2" stroke="#9a571b" strokeWidth="1.7" strokeLinecap="round" />
+        </g>
+        <circle cx="35" cy="36" r="5.5" fill="#ffd166" stroke="#f59e0b" strokeWidth="1.5" />
+        <path d="M32 36h6M35 33v6" stroke="#b87503" strokeLinecap="round" strokeWidth="1.6" />
       </svg>
     </div>
   );
