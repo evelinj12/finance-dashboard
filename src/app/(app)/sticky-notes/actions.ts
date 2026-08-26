@@ -34,6 +34,26 @@ export async function addStickyNote(input: string) {
   revalidateNotes();
 }
 
+export async function updateStickyNote(id: string, input: string) {
+  const noteId = id.trim();
+  const body = input.trim();
+  if (!noteId) {
+    throw new Error("Note is required");
+  }
+  if (!body) {
+    throw new Error("Note cannot be empty");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sticky_notes")
+    .update({ body, updated_at: new Date().toISOString() })
+    .eq("id", noteId);
+  if (error) throw new Error(error.message);
+
+  revalidateNotes();
+}
+
 export async function deleteStickyNote(id: string) {
   const noteId = id.trim();
   if (!noteId) {

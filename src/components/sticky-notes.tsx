@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ChevronDown, ChevronUp, NotebookPen, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, NotebookPen, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { addStickyNote, deleteStickyNote } from "@/app/(app)/sticky-notes/actions";
+import { addStickyNote, deleteStickyNote, updateStickyNote } from "@/app/(app)/sticky-notes/actions";
 
 export interface StickyNote {
   id: string;
@@ -24,6 +24,8 @@ export function StickyNotes({ notes }: { notes: StickyNote[] }) {
   const [body, setBody] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingBody, setEditingBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -49,8 +51,37 @@ export function StickyNotes({ notes }: { notes: StickyNote[] }) {
     startTransition(async () => {
       try {
         await deleteStickyNote(id);
+        if (editingId === id) {
+          setEditingId(null);
+          setEditingBody("");
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not delete note");
+      }
+    });
+  }
+
+  function beginEdit(note: StickyNote) {
+    setError(null);
+    setEditingId(note.id);
+    setEditingBody(note.body);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditingBody("");
+    setError(null);
+  }
+
+  function saveEdit(id: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await updateStickyNote(id, editingBody);
+        setEditingId(null);
+        setEditingBody("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not update note");
       }
     });
   }
@@ -61,7 +92,7 @@ export function StickyNotes({ notes }: { notes: StickyNote[] }) {
         <Button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="h-11 rounded-full bg-amber-300 px-4 text-slate-900 shadow-lg shadow-sky-900/15 hover:bg-amber-200"
+          className="h-10 rounded-full bg-sky-200 px-3 text-sky-950 shadow-lg shadow-sky-900/15 hover:bg-sky-100"
         >
           <NotebookPen className="size-4" />
           Notes
@@ -71,10 +102,10 @@ export function StickyNotes({ notes }: { notes: StickyNote[] }) {
   }
 
   return (
-    <aside className="fixed right-4 bottom-4 z-30 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-amber-200/80 bg-amber-50/95 text-sm text-slate-900 shadow-2xl shadow-sky-950/15 backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-3 border-b border-amber-200/80 px-4 py-3">
+    <aside className="fixed right-4 bottom-4 z-30 w-[min(252px,calc(100vw-2rem))] rounded-lg border border-sky-200/90 bg-sky-100/95 text-sm text-sky-950 shadow-2xl shadow-sky-950/15 backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-3 border-b border-sky-200/90 px-3 py-2.5">
         <div className="flex items-center gap-2 font-semibold">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-amber-200 text-amber-900">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-sky-300/80 text-sky-950">
             <NotebookPen className="size-4" />
           </span>
           Sticky notes
@@ -84,18 +115,18 @@ export function StickyNotes({ notes }: { notes: StickyNote[] }) {
         </Button>
       </div>
 
-      <div className="space-y-3 p-4">
+      <div className="space-y-2.5 p-3">
         <form action={submitNote} className="space-y-2">
           <textarea
             name="body"
             value={body}
             onChange={(event) => setBody(event.target.value)}
             placeholder="Brain dump, reminder, idea..."
-            rows={3}
-            className="min-h-20 w-full resize-none rounded-lg border border-amber-200 bg-white/80 px-3 py-2 outline-none transition focus:border-amber-300 focus:ring-3 focus:ring-amber-200/60"
+            rows={2}
+            className="min-h-16 w-full resize-none rounded-lg border border-sky-200 bg-white/80 px-2.5 py-2 text-xs leading-relaxed outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-3 focus:ring-sky-200/70"
           />
-          <Button type="submit" size="sm" disabled={isPending || !body.trim()} className="w-full bg-sky-600 hover:bg-sky-500">
-            <Plus className="size-4" />
+          <Button type="submit" size="xs" disabled={isPending || !body.trim()} className="ml-auto flex h-8 bg-sky-600 px-2.5 hover:bg-sky-500">
+            <Plus className="size-3.5" />
             Add note
           </Button>
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
@@ -103,33 +134,84 @@ export function StickyNotes({ notes }: { notes: StickyNote[] }) {
 
         <div className="space-y-2">
           {visibleNotes.map((note) => (
-            <article key={note.id} className="rounded-lg border border-amber-200/70 bg-white/75 p-3 shadow-sm shadow-amber-900/5">
+            <article key={note.id} className="rounded-lg border border-sky-200/80 bg-white/75 p-2.5 shadow-sm shadow-sky-900/5">
               <div className="mb-2 flex items-start justify-between gap-2">
                 <time className="text-xs font-medium text-muted-foreground">{formatNoteDate(note.created_at)}</time>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => removeNote(note.id)}
-                  disabled={isPending}
-                  aria-label="Delete note"
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="size-3" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  {editingId === note.id ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => saveEdit(note.id)}
+                        disabled={isPending || !editingBody.trim()}
+                        aria-label="Save note"
+                        className="text-emerald-700 hover:text-emerald-800"
+                      >
+                        <Check className="size-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={cancelEdit}
+                        disabled={isPending}
+                        aria-label="Cancel edit"
+                        className="text-muted-foreground"
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => beginEdit(note)}
+                        disabled={isPending}
+                        aria-label="Edit note"
+                        className="text-muted-foreground hover:text-sky-700"
+                      >
+                        <Pencil className="size-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => removeNote(note.id)}
+                        disabled={isPending}
+                        aria-label="Delete note"
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-              <p className="whitespace-pre-wrap break-words leading-relaxed">{note.body}</p>
+              {editingId === note.id ? (
+                <textarea
+                  value={editingBody}
+                  onChange={(event) => setEditingBody(event.target.value)}
+                  rows={3}
+                  className="min-h-20 w-full resize-none rounded-lg border border-sky-200 bg-white/90 px-2.5 py-2 text-xs leading-relaxed outline-none transition focus:border-sky-300 focus:ring-3 focus:ring-sky-200/70"
+                />
+              ) : (
+                <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">{note.body}</p>
+              )}
             </article>
           ))}
 
           {notes.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-amber-300 bg-white/50 p-3 text-muted-foreground">
+            <div className="rounded-lg border border-dashed border-sky-300 bg-white/50 p-3 text-xs text-muted-foreground">
               No notes yet.
             </div>
           ) : null}
 
           {hasMoreNotes ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => setExpanded((value) => !value)} className="w-full border-amber-200 bg-white/70">
+            <Button type="button" variant="outline" size="xs" onClick={() => setExpanded((value) => !value)} className="w-full border-sky-200 bg-white/70">
               {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
               {expanded ? "Show latest 5" : `Show ${notes.length - 5} more`}
             </Button>
