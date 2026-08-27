@@ -145,7 +145,7 @@ export function IncomeDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label>Status</Label>
               <Select

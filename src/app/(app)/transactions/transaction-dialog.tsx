@@ -121,7 +121,7 @@ export function TransactionDialog({
           <DialogTitle>{isEdit ? "Edit transaction" : "Add transaction"}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label>Date</Label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />

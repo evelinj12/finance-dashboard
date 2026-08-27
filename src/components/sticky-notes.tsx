@@ -23,7 +23,7 @@ function formatNoteDate(value: string) {
 export function StickyNotes({ notes }: { notes: StickyNote[] }) {
   const [body, setBody] = useState("");
   const [expanded, setExpanded] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +88,7 @@ export function StickyNotes({ notes }: { notes: StickyNote[] }) {
 
   if (collapsed) {
     return (
-      <div className="fixed right-4 bottom-4 z-30">
+      <div className="fixed right-3 bottom-3 z-30 sm:right-4 sm:bottom-4">
         <Button
           type="button"
           onClick={() => setCollapsed(false)}
@@ -102,7 +102,7 @@ export function StickyNotes({ notes }: { notes: StickyNote[] }) {
   }
 
   return (
-    <aside className="fixed right-4 bottom-4 z-30 w-[min(252px,calc(100vw-2rem))] rounded-lg border border-sky-200/90 bg-sky-100/95 text-sm text-sky-950 shadow-2xl shadow-sky-950/15 backdrop-blur-xl">
+    <aside className="fixed right-3 bottom-3 z-30 max-h-[min(72dvh,34rem)] w-[min(252px,calc(100vw-1.5rem))] overflow-y-auto rounded-lg border border-sky-200/90 bg-sky-100/95 text-sm text-sky-950 shadow-2xl shadow-sky-950/15 backdrop-blur-xl mobile-scrollbar sm:right-4 sm:bottom-4 sm:max-h-[min(76dvh,36rem)] sm:w-[min(252px,calc(100vw-2rem))]">
       <div className="flex items-center justify-between gap-3 border-b border-sky-200/90 px-3 py-2.5">
         <div className="flex items-center gap-2 font-semibold">
           <span className="flex size-7 items-center justify-center rounded-lg bg-sky-300/80 text-sky-950">

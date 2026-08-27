@@ -149,6 +149,19 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .mobile-scrollbar {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-scrollbar::-webkit-scrollbar {
+    height: 0.5rem;
+  }
+
+  .mobile-scrollbar::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--primary) 32%, transparent);
+    border-radius: 999px;
+  }
+
   .saving-mascot {
     transform-origin: 50% 88%;
     will-change: transform;

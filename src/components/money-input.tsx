@@ -37,7 +37,7 @@ export function MoneyInput({
   return (
     <div className="flex flex-col gap-2">
       <Label>{label}</Label>
-      <div className="flex gap-2">
+      <div className="flex min-w-0 gap-2">
         <Input
           type="number"
           step="any"
@@ -57,7 +57,7 @@ export function MoneyInput({
             });
           }}
         >
-          <SelectTrigger className="w-24">
+          <SelectTrigger className="w-24 shrink-0">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -70,12 +70,12 @@ export function MoneyInput({
         </Select>
       </div>
       {value.currency !== "IDR" ? (
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-muted-foreground shrink-0">Rate to IDR</Label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Label className="shrink-0 text-xs text-muted-foreground">Rate to IDR</Label>
           <Input
             type="number"
             step="any"
-            className="w-32"
+            className="w-32 min-w-0"
             value={value.fxRate}
             onChange={(e) => onChange({ ...value, fxRate: e.target.value })}
           />

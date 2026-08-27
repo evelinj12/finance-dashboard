@@ -41,7 +41,10 @@ export function Nav({ links }: { links: NavLink[] }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex gap-1 overflow-x-auto rounded-lg bg-white/55 p-1 shadow-inner shadow-sky-900/5 ring-1 ring-sky-100/80">
+    <nav
+      className="mobile-scrollbar -mx-1 flex snap-x gap-1 overflow-x-auto rounded-lg bg-white/55 p-1 shadow-inner shadow-sky-900/5 ring-1 ring-sky-100/80 sm:mx-0"
+      aria-label="Primary"
+    >
       {links.map((link) => {
         const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
         const Icon = navIcons[link.id as keyof typeof navIcons] ?? Coins;
@@ -50,7 +53,7 @@ export function Nav({ links }: { links: NavLink[] }) {
             key={link.id}
             href={link.href}
             className={cn(
-              "flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-all duration-200",
+              "flex h-11 shrink-0 snap-start items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-all duration-200 sm:h-10",
               active
                 ? "bg-primary text-primary-foreground shadow-sm shadow-sky-700/20"
                 : "text-muted-foreground hover:bg-white hover:text-foreground"

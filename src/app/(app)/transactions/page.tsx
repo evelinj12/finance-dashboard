@@ -264,7 +264,7 @@ export default async function TransactionsPage({
             <h3 className="text-base font-semibold">Date range</h3>
             <p className="text-sm text-muted-foreground">{dateRangeLabel}</p>
           </div>
-          <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(140px,0.9fr)_minmax(140px,0.9fr)_minmax(140px,0.9fr)_minmax(140px,0.9fr)_minmax(160px,1fr)_minmax(150px,1fr)_auto_auto]" action="/transactions">
+          <form className="grid w-full gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[minmax(140px,0.9fr)_minmax(140px,0.9fr)_minmax(140px,0.9fr)_minmax(140px,0.9fr)_minmax(160px,1fr)_minmax(150px,1fr)_auto_auto]" action="/transactions">
             <input type="hidden" name="month" value={month} />
             {checklistStatus === "all" ? null : (
               <input type="hidden" name="checklistStatus" value={checklistStatus} />
@@ -337,12 +337,12 @@ export default async function TransactionsPage({
                 <option value="category">Category A-Z</option>
               </select>
             </label>
-            <Button type="submit" className="sm:self-end">
+            <Button type="submit" className="w-full sm:self-end">
               Apply
             </Button>
             <Link
               href={resetTransactionFiltersUrl}
-              className={buttonVariants({ variant: "outline", className: "sm:self-end" })}
+              className={buttonVariants({ variant: "outline", className: "w-full sm:self-end" })}
             >
               Reset
             </Link>
@@ -350,7 +350,82 @@ export default async function TransactionsPage({
         </CardContent>
       </Card>
 
-      <Card>
+      <div className="flex flex-col gap-3 md:hidden">
+        {sortedTransactions.map((t, index) => {
+          const category = firstCategory(t.category);
+          const previousCategory = index > 0 ? firstCategory(sortedTransactions[index - 1].category) : null;
+          const categoryName = category?.name ?? "-";
+          const tag = category?.tag ?? "uncategorized";
+          const showGroup = txSort === "tag" && tag !== (previousCategory?.tag ?? "");
+          const signedTone = t.direction === "in" ? "text-emerald-700" : "text-rose-600";
+
+          return (
+            <div key={t.id} className="flex flex-col gap-2">
+              {showGroup ? (
+                <div className="px-1 text-xs font-semibold uppercase tracking-wide text-sky-900">
+                  {tagLabels[tag] ?? tag}
+                </div>
+              ) : null}
+              <Card>
+                <CardContent className="flex flex-col gap-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{categoryName}</p>
+                      <p className="text-xs text-muted-foreground">{t.date}</p>
+                    </div>
+                    <div className={`shrink-0 text-right text-base font-bold money-figures ${signedTone}`}>
+                      {t.direction === "out" ? "-" : ""}
+                      <Money amountIdr={t.amount_idr} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className={tagBadgeClass(tag)}>
+                      {tagLabels[tag] ?? tag}
+                    </Badge>
+                    <Badge variant="outline" className={sourceBadgeClass(t.source)}>
+                      {sourceLabels[t.source] ?? t.source}
+                    </Badge>
+                  </div>
+
+                  <div className="grid gap-2 text-sm text-muted-foreground">
+                    <div>
+                      <span className="font-medium text-foreground">Notes: </span>
+                      {t.notes || "-"}
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground">Save to: </span>
+                      {t.save_to || "-"}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-1 border-t border-sky-100 pt-2">
+                    <TransactionDialog
+                      categories={categoryList}
+                      transaction={t}
+                      trigger={
+                        <Button variant="ghost" size="icon-sm" aria-label="Edit transaction">
+                          <Pencil className="size-4" />
+                        </Button>
+                      }
+                    />
+                    <DeleteTransactionButton id={t.id} />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
+        {sortedTransactions.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              No transactions in this date range.
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+
+      <Card className="hidden md:flex">
         <CardContent className="p-0">
           <Table>
             <TableHeader>

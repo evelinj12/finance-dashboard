@@ -143,11 +143,11 @@ export function TransactionChecklist({
             <CheckSquare className="size-5 text-sky-600" />
             Monthly checklist
           </span>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
             <select
               value={statusFilter}
               onChange={(e) => updateUrlParam("checklistStatus", e.target.value)}
-              className="h-9 rounded-lg border border-input bg-white/75 px-3 text-sm shadow-sm shadow-sky-950/5 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35"
+              className="h-11 rounded-lg border border-input bg-white/75 px-3 text-base shadow-sm shadow-sky-950/5 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35 sm:h-9 sm:text-sm"
             >
               {statusOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -158,7 +158,7 @@ export function TransactionChecklist({
             <select
               value={sort}
               onChange={(e) => updateUrlParam("checklistSort", e.target.value)}
-              className="h-9 rounded-lg border border-input bg-white/75 px-3 text-sm shadow-sm shadow-sky-950/5 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35"
+              className="h-11 rounded-lg border border-input bg-white/75 px-3 text-base shadow-sm shadow-sky-950/5 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35 sm:h-9 sm:text-sm"
             >
               {sortOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -183,7 +183,95 @@ export function TransactionChecklist({
           </Button>
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-sky-100">
+        <div className="rounded-lg border border-sky-100 sm:hidden">
+          <div className="divide-y divide-sky-100">
+            {items.map((item) => (
+              <div key={item.id} className="flex gap-3 px-3 py-3">
+                <input
+                  type="checkbox"
+                  checked={item.completed}
+                  disabled={isPending}
+                  onChange={(e) => handleToggle(item.id, e.target.checked)}
+                  className="mt-1 size-5 shrink-0 rounded border-sky-300 accent-sky-600"
+                  aria-label={`Mark ${item.title} complete`}
+                />
+                <div className="min-w-0 flex-1">
+                  {editingId === item.id ? (
+                    <div className="grid gap-2">
+                      <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                      <Input
+                        value={editLatestDateNote}
+                        onChange={(e) => setEditLatestDateNote(e.target.value)}
+                        placeholder="Latest date"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <p className={item.completed ? "text-muted-foreground line-through" : "font-medium"}>
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {item.latest_date_note || "No latest date noted"}
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-start gap-1">
+                  {editingId === item.id ? (
+                    <>
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        onClick={() => handleUpdate(item)}
+                        disabled={isPending || !editTitle.trim()}
+                        aria-label="Save checklist item"
+                      >
+                        <Save className="size-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => setEditingId(null)}
+                        aria-label="Cancel editing"
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => startEdit(item)}
+                        aria-label="Edit checklist item"
+                      >
+                        <Pencil className="size-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => handleDelete(item.id)}
+                        aria-label="Delete checklist item"
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+            {items.length === 0 ? (
+              <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+                No checklist items match this filter.
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="hidden overflow-hidden rounded-lg border border-sky-100 sm:block">
           <div className="grid grid-cols-[44px_minmax(0,1fr)_minmax(140px,0.55fr)_88px] bg-sky-50/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <span />
             <span>Monthly mandatory</span>
