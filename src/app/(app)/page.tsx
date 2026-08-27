@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -11,14 +12,14 @@ import { DashboardMonthSelect, NetWorthRangeSelect } from "@/components/dashboar
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CategorySpendingChart } from "@/components/category-spending-chart";
-import { CatMascot, CoinStack, WalletIllustration } from "@/components/cozy-illustrations";
+import { CoinStack, WalletIllustration } from "@/components/cozy-illustrations";
 import { GoalProgressDonut } from "@/components/goal-progress-donut";
 import { Money } from "@/components/money";
 import { NetWorthTrendChart } from "@/components/net-worth-trend-chart";
 import { TimeGreeting } from "@/components/time-greeting";
 import { createClient } from "@/lib/supabase/server";
 import { formatMonthLabel, monthRange, monthStart, shiftMonth } from "@/lib/dates";
-import { savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
+import { savingHealthPercent } from "@/lib/finance/monthly-summary";
 
 type NetWorthRange = "6m" | "12m" | "ytd" | "all";
 
@@ -115,6 +116,59 @@ function SavingHealthDonut({ progress, label }: { progress: number; label: strin
   );
 }
 
+function savingHealthDisplay({
+  identified,
+  ratio,
+  netAfterSavings,
+}: {
+  identified: boolean;
+  ratio: number;
+  netAfterSavings: number;
+}) {
+  if (!identified) {
+    return {
+      status: "Unidentified data",
+      mascotSrc: "/saving-health/neutral.png",
+      mascotAlt: "Neutral saving health cat",
+      mascotClassName: "w-36",
+      mascotWidth: 360,
+      mascotHeight: 180,
+    };
+  }
+
+  const belowTarget = ratio < 0.5 || netAfterSavings < 0;
+  if (belowTarget) {
+    return {
+      status: "Below target",
+      mascotSrc: "/saving-health/sad.png",
+      mascotAlt: "Sad saving health cat",
+      mascotClassName: "w-32",
+      mascotWidth: 360,
+      mascotHeight: 360,
+    };
+  }
+
+  if (ratio <= 0.55) {
+    return {
+      status: "Right at target",
+      mascotSrc: "/saving-health/neutral.png",
+      mascotAlt: "Neutral saving health cat",
+      mascotClassName: "w-36",
+      mascotWidth: 360,
+      mascotHeight: 180,
+    };
+  }
+
+  return {
+    status: "On target",
+    mascotSrc: "/saving-health/happy.png",
+    mascotAlt: "Happy saving health cat",
+    mascotClassName: "w-32",
+    mascotWidth: 360,
+    mascotHeight: 360,
+  };
+}
+
 export default async function OverviewPage({
   searchParams,
 }: {
@@ -188,6 +242,11 @@ export default async function OverviewPage({
   const availableMonths = (summaryMonths ?? []).map((row) => row.month);
   const savingPercent = savingHealthIdentified ? savingHealthPercent(savingHealthRatio) : "Unidentified";
   const savingProgress = savingHealthIdentified ? Math.min(100, Math.max(0, savingHealthRatio * 100)) : 0;
+  const savingDisplay = savingHealthDisplay({
+    identified: savingHealthIdentified,
+    ratio: savingHealthRatio,
+    netAfterSavings,
+  });
   const trueExpensePct =
     trueExpensesBudget > 0 ? Math.min(100, Math.max(0, (trueExpensesActual / trueExpensesBudget) * 100)) : 0;
   const spendingByCategoryMap = new Map<string, { name: string; amountIdr: number; sortOrder: number }>();
@@ -274,11 +333,16 @@ export default async function OverviewPage({
               <SavingHealthDonut progress={savingProgress} label={savingPercent} />
               <div className="flex flex-col gap-3">
                 <p className="text-sm text-muted-foreground">
-                {savingHealthIdentified
-                  ? `${savingHealthStatus(savingHealthRatio, netAfterSavings)} - Target: more than 50%`
-                  : "Waiting for complete income and budget data."}
+                  {savingDisplay.status}
                 </p>
-                <CatMascot className="w-28" />
+                <Image
+                  src={savingDisplay.mascotSrc}
+                  alt={savingDisplay.mascotAlt}
+                  width={savingDisplay.mascotWidth}
+                  height={savingDisplay.mascotHeight}
+                  className={`${savingDisplay.mascotClassName} mix-blend-multiply drop-shadow-sm`}
+                  priority
+                />
               </div>
             </div>
           </CardContent>
