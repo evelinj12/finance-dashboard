@@ -2,7 +2,11 @@ import type { ComponentType } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  ArrowDownRight,
   ArrowRight,
+  ArrowUpRight,
+  CalendarDays,
+  Minus,
   ReceiptText,
   ShieldCheck,
   Users,
@@ -22,6 +26,7 @@ import { formatMonthLabel, monthRange, monthStart, shiftMonth } from "@/lib/date
 import { savingHealthPercent } from "@/lib/finance/monthly-summary";
 
 type NetWorthRange = "6m" | "12m" | "ytd" | "all";
+type SavingHealthMood = "happy" | "calm" | "sad";
 
 const netWorthRanges = new Set<string>(["6m", "12m", "ytd", "all"]);
 
@@ -116,6 +121,35 @@ function SavingHealthDonut({ progress, label }: { progress: number; label: strin
   );
 }
 
+function SavingHealthMascot({
+  mood,
+  src,
+  alt,
+}: {
+  mood: SavingHealthMood;
+  src: string;
+  alt: string;
+}) {
+  const motionClassName =
+    mood === "happy" ? "saving-mascot-happy" : mood === "sad" ? "saving-mascot-sad" : "saving-mascot-calm";
+
+  return (
+    <div
+      className={`saving-mascot ${motionClassName} relative size-32 sm:size-36`}
+      aria-hidden="true"
+    >
+      <Image
+        src={src}
+        alt={alt}
+        width={520}
+        height={560}
+        className="h-full w-full object-contain drop-shadow-[0_14px_18px_rgba(15,23,42,0.12)]"
+        priority
+      />
+    </div>
+  );
+}
+
 function savingHealthDisplay({
   identified,
   ratio,
@@ -127,12 +161,10 @@ function savingHealthDisplay({
 }) {
   if (!identified) {
     return {
-      status: "Unidentified data",
+      status: "Unidentified",
       mascotSrc: "/saving-health/neutral.png",
-      mascotAlt: "Neutral saving health cat",
-      mascotClassName: "w-36",
-      mascotWidth: 360,
-      mascotHeight: 180,
+      mascotAlt: "Calm saving health cat",
+      mood: "calm" as const,
     };
   }
 
@@ -142,20 +174,16 @@ function savingHealthDisplay({
       status: "Below target",
       mascotSrc: "/saving-health/sad.png",
       mascotAlt: "Sad saving health cat",
-      mascotClassName: "w-32",
-      mascotWidth: 360,
-      mascotHeight: 360,
+      mood: "sad" as const,
     };
   }
 
   if (ratio <= 0.55) {
     return {
-      status: "Right at target",
+      status: "On track",
       mascotSrc: "/saving-health/neutral.png",
-      mascotAlt: "Neutral saving health cat",
-      mascotClassName: "w-36",
-      mascotWidth: 360,
-      mascotHeight: 180,
+      mascotAlt: "Calm saving health cat",
+      mood: "calm" as const,
     };
   }
 
@@ -163,9 +191,7 @@ function savingHealthDisplay({
     status: "On target",
     mascotSrc: "/saving-health/happy.png",
     mascotAlt: "Happy saving health cat",
-    mascotClassName: "w-32",
-    mascotWidth: 360,
-    mascotHeight: 360,
+    mood: "happy" as const,
   };
 }
 
@@ -183,6 +209,7 @@ export default async function OverviewPage({
 
   const [
     { data: summary },
+    { data: previousSummary },
     { data: summaryMonths },
     { data: netWorthHistory },
     { data: goal },
@@ -193,6 +220,11 @@ export default async function OverviewPage({
         .from("monthly_finance_summary_v3")
         .select("*")
         .eq("month", month)
+        .maybeSingle(),
+      supabase
+        .from("monthly_finance_summary_v3")
+        .select("saving_health_ratio, saving_health_identified, net_after_savings_idr")
+        .eq("month", shiftMonth(month, -1))
         .maybeSingle(),
       supabase
         .from("monthly_finance_summary_v3")
@@ -247,6 +279,27 @@ export default async function OverviewPage({
     ratio: savingHealthRatio,
     netAfterSavings,
   });
+  const previousMonth = shiftMonth(month, -1);
+  const previousSavingRatio =
+    previousSummary?.saving_health_identified && typeof previousSummary.saving_health_ratio === "number"
+      ? previousSummary.saving_health_ratio
+      : null;
+  const savingRatioDelta =
+    savingHealthIdentified && previousSavingRatio !== null ? savingHealthRatio - previousSavingRatio : null;
+  const savingDeltaPoints = savingRatioDelta === null ? null : Math.round(savingRatioDelta * 100);
+  const savingTrendLabel =
+    savingDeltaPoints === null
+      ? "No previous comparison"
+      : savingDeltaPoints === 0
+        ? `Steady vs ${formatMonthLabel(previousMonth)}`
+        : `${savingDeltaPoints > 0 ? "+" : "-"}${Math.abs(savingDeltaPoints)} pts vs ${formatMonthLabel(previousMonth)}`;
+  const savingTrendTone =
+    savingDeltaPoints === null || savingDeltaPoints === 0
+      ? "border-sky-100 bg-white/70 text-muted-foreground"
+      : savingDeltaPoints > 0
+        ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+        : "border-red-100 bg-red-50 text-red-700";
+  const monthlyPositionLabel = netAfterSavings >= 0 ? "Monthly excess" : "Monthly shortfall";
   const trueExpensePct =
     trueExpensesBudget > 0 ? Math.min(100, Math.max(0, (trueExpensesActual / trueExpensesBudget) * 100)) : 0;
   const spendingByCategoryMap = new Map<string, { name: string; amountIdr: number; sortOrder: number }>();
@@ -321,9 +374,30 @@ export default async function OverviewPage({
         <Card className="bg-[color:var(--surface-blue)]">
           <CardContent className="flex h-full flex-col gap-5 p-5">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="space-y-3">
                 <p className="text-sm font-semibold text-muted-foreground">Saving Health</p>
-                <p className="mt-1 text-4xl font-bold money-figures">{savingPercent}</p>
+                <div className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-white/70 px-3 py-1 text-sm font-semibold text-sky-800 shadow-sm shadow-sky-950/5">
+                  <CalendarDays className="size-4 text-sky-600" />
+                  {formatMonthLabel(month)}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+                    {monthlyPositionLabel}
+                  </p>
+                  <Money amountIdr={netAfterSavings} signed className="mt-1 block text-2xl font-bold money-figures" />
+                </div>
+                <div
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${savingTrendTone}`}
+                >
+                  {savingDeltaPoints === null || savingDeltaPoints === 0 ? (
+                    <Minus className="size-3.5" />
+                  ) : savingDeltaPoints > 0 ? (
+                    <ArrowUpRight className="size-3.5" />
+                  ) : (
+                    <ArrowDownRight className="size-3.5" />
+                  )}
+                  {savingTrendLabel}
+                </div>
               </div>
               <span className="rounded-full border border-sky-100 bg-white px-3 py-1 text-sm font-semibold text-sky-700 shadow-sm">
                 Goal &gt; 50%
@@ -331,17 +405,12 @@ export default async function OverviewPage({
             </div>
             <div className="grid flex-1 items-center gap-4 sm:grid-cols-[auto_1fr] lg:grid-cols-1 xl:grid-cols-[auto_1fr]">
               <SavingHealthDonut progress={savingProgress} label={savingPercent} />
-              <div className="flex flex-col gap-3">
-                <p className="text-sm text-muted-foreground">
-                  {savingDisplay.status}
-                </p>
-                <Image
+              <div className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-lg bg-white/35 px-3 py-4">
+                <p className="text-sm font-semibold text-muted-foreground">{savingDisplay.status}</p>
+                <SavingHealthMascot
+                  mood={savingDisplay.mood}
                   src={savingDisplay.mascotSrc}
                   alt={savingDisplay.mascotAlt}
-                  width={savingDisplay.mascotWidth}
-                  height={savingDisplay.mascotHeight}
-                  className={`${savingDisplay.mascotClassName} mix-blend-multiply drop-shadow-sm`}
-                  priority
                 />
               </div>
             </div>
