@@ -17,6 +17,13 @@ export interface TransactionInput {
   save_to: string | null;
 }
 
+export interface ChecklistItemInput {
+  month: string;
+  title: string;
+  latest_date_note: string | null;
+  completed?: boolean;
+}
+
 interface ExistingRecurringTransaction {
   id: string;
   date: string;
@@ -83,6 +90,25 @@ function normalizeTransactionInput(input: TransactionInput): TransactionInput {
   };
 }
 
+function normalizeChecklistItemInput(input: ChecklistItemInput): ChecklistItemInput {
+  const month = input.month?.trim();
+  const title = input.title?.trim();
+
+  if (!month || !/^\d{4}-\d{2}-01$/.test(month)) {
+    throw new Error("Month is required");
+  }
+  if (!title) {
+    throw new Error("Checklist item is required");
+  }
+
+  return {
+    month,
+    title,
+    latest_date_note: input.latest_date_note?.trim() || null,
+    completed: input.completed ?? false,
+  };
+}
+
 export async function addTransaction(input: TransactionInput) {
   const normalizedInput = normalizeTransactionInput(input);
   const supabase = await createClient();
@@ -135,6 +161,60 @@ export async function deleteTransaction(id: string) {
   revalidatePath("/transactions");
   revalidatePath("/budget");
   revalidatePath("/");
+}
+
+export async function addChecklistItem(input: ChecklistItemInput) {
+  const normalizedInput = normalizeChecklistItemInput(input);
+  const supabase = await createClient();
+  const { data: lastItem, error: lastItemError } = await supabase
+    .from("transaction_checklist_items")
+    .select("sort_order")
+    .eq("month", normalizedInput.month)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastItemError) throw new Error(lastItemError.message);
+
+  const { error } = await supabase.from("transaction_checklist_items").insert({
+    ...normalizedInput,
+    sort_order: (lastItem?.sort_order ?? 0) + 10,
+  });
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/transactions");
+}
+
+export async function updateChecklistItem(id: string, input: ChecklistItemInput) {
+  const normalizedInput = normalizeChecklistItemInput(input);
+  const supabase = await createClient();
+  const { error } = await supabase.from("transaction_checklist_items").update({
+    title: normalizedInput.title,
+    latest_date_note: normalizedInput.latest_date_note,
+    completed: normalizedInput.completed ?? false,
+    updated_at: new Date().toISOString(),
+  }).eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/transactions");
+}
+
+export async function toggleChecklistItem(id: string, completed: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("transaction_checklist_items")
+    .update({ completed, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/transactions");
+}
+
+export async function deleteChecklistItem(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("transaction_checklist_items").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/transactions");
 }
 
 export async function ensureMonthlyRecurringTransactions(month: string) {

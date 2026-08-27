@@ -178,6 +178,24 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["recurring_transaction_skips"]["Row"]>;
         Relationships: [];
       };
+      transaction_checklist_items: {
+        Row: {
+          id: string;
+          month: string;
+          title: string;
+          latest_date_note: string | null;
+          completed: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["transaction_checklist_items"]["Row"]> & {
+          month: string;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["transaction_checklist_items"]["Row"]>;
+        Relationships: [];
+      };
       income_sources: {
         Row: {
           id: string;
