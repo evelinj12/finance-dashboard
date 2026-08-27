@@ -405,7 +405,7 @@ export default async function OverviewPage({
             </div>
             <div className="grid flex-1 items-center gap-4 sm:grid-cols-[auto_1fr] lg:grid-cols-1 xl:grid-cols-[auto_1fr]">
               <SavingHealthDonut progress={savingProgress} label={savingPercent} />
-              <div className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-lg bg-white/35 px-3 py-4">
+              <div className="flex min-h-40 flex-col items-center justify-center gap-1 px-3 py-2 text-center">
                 <p className="text-sm font-semibold text-muted-foreground">{savingDisplay.status}</p>
                 <SavingHealthMascot
                   mood={savingDisplay.mood}
