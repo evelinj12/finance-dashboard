@@ -43,6 +43,11 @@ export function TeamTransferStatusForm({
   const [notes, setNotes] = useState(currentPerson?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const personItems = people.map((person) => ({ value: person.id, label: person.name }));
+  const statusItems = [
+    { value: "not_transferred", label: "Not transferred" },
+    { value: "transferred", label: "Transferred" },
+  ];
 
   function handlePersonChange(value: string | null) {
     const nextPerson = people.find((person) => person.id === value) ?? people[0];
@@ -85,15 +90,15 @@ export function TeamTransferStatusForm({
       <CardHeader>
         <CardTitle>Transfer status</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-[minmax(140px,0.8fr)_minmax(180px,0.9fr)_minmax(160px,0.9fr)_minmax(220px,1.3fr)_auto] md:items-end">
-          <div className="flex flex-col gap-2">
+      <CardContent className="flex flex-col gap-4">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.5fr)_auto] md:items-end">
+          <div className="flex min-w-0 flex-col gap-2">
             <Label>Person</Label>
-            <Select value={personId} onValueChange={handlePersonChange} disabled={people.length === 0}>
-              <SelectTrigger>
+            <Select items={personItems} value={personId} onValueChange={handlePersonChange} disabled={people.length === 0}>
+              <SelectTrigger className="w-full min-w-0">
                 <SelectValue placeholder="Select person" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent align="start">
                 {people.map((person) => (
                   <SelectItem key={person.id} value={person.id}>
                     {person.name}
@@ -102,25 +107,26 @@ export function TeamTransferStatusForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
             <Label>Status</Label>
             <Select
+              items={statusItems}
               value={status}
               onValueChange={(value) =>
                 setStatus(value === "transferred" ? "transferred" : "not_transferred")
               }
               disabled={people.length === 0}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full min-w-0">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent align="start">
                 <SelectItem value="not_transferred">Not transferred</SelectItem>
                 <SelectItem value="transferred">Transferred</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
             <Label>Transferred date</Label>
             <Input
               type="date"
@@ -129,7 +135,7 @@ export function TeamTransferStatusForm({
               disabled={status !== "transferred" || people.length === 0}
             />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
             <Label>Notes</Label>
             <Input value={notes} onChange={(event) => setNotes(event.target.value)} disabled={people.length === 0} />
           </div>
@@ -139,28 +145,29 @@ export function TeamTransferStatusForm({
           </Button>
         </div>
 
-        {currentPerson ? (
-          <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="font-semibold">{currentPerson.name}</h3>
-                <p className="mt-3 text-sm text-muted-foreground">Amount to send</p>
-                <Money amountIdr={currentPerson.amountToSendIdr} className="text-lg font-semibold text-emerald-700" />
+        {people.length > 0 ? (
+          <div className="grid gap-2 md:grid-cols-2">
+            {people.map((person) => (
+              <div key={person.id} className="rounded-md border bg-white/55 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-medium">{person.name}</p>
+                  <Badge variant={person.status === "transferred" ? "secondary" : "outline"}>
+                    {statusLabels[person.status]}
+                  </Badge>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Amount to send</p>
+                    <Money amountIdr={person.amountToSendIdr} className="font-medium text-emerald-700" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Transferred at</p>
+                    <p className="font-medium">{person.transferredAt ?? "-"}</p>
+                  </div>
+                </div>
+                {person.notes ? <p className="mt-2 text-sm text-muted-foreground">{person.notes}</p> : null}
               </div>
-              <Badge variant={status === "transferred" ? "secondary" : "outline"}>
-                {statusLabels[status]}
-              </Badge>
-            </div>
-            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="text-muted-foreground">Transferred at</p>
-                <p className="font-medium">{status === "transferred" ? transferredAt : currentPerson.transferredAt ?? "-"}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Notes</p>
-                <p className="font-medium">{notes.trim() || currentPerson.notes || "-"}</p>
-              </div>
-            </div>
+            ))}
           </div>
         ) : (
           <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-4 text-sm text-muted-foreground">
