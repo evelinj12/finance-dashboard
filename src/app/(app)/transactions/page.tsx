@@ -19,6 +19,7 @@ import {
 } from "./transaction-checklist";
 import { DeleteTransactionButton } from "./delete-transaction-button";
 import { ensureMonthlyRecurringTransactions } from "./actions";
+import { ensurePaidIncomeTransactions } from "../income/actions";
 
 function previousDay(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -51,11 +52,20 @@ const sourceLabels: Record<string, string> = {
   manual: "Manual",
   import: "Imported sheet",
   auto_monthly: "Auto monthly",
+  income_auto: "Paid income",
+  team_transfer: "Team transfer",
 };
 
 type SourceFilter = TransactionSource | "all";
 
-const sourceValues = new Set<SourceFilter>(["all", "manual", "import", "auto_monthly"]);
+const sourceValues = new Set<SourceFilter>([
+  "all",
+  "manual",
+  "import",
+  "auto_monthly",
+  "income_auto",
+  "team_transfer",
+]);
 const tagValues = new Set<string>(["all", "sinking_fund", "fixed", "spent", "income"]);
 const txSortValues = new Set<string>(["tag", "date_desc", "date_asc", "amount_desc", "amount_asc", "category"]);
 const checklistStatusValues = new Set<ChecklistStatusFilter>(["all", "open", "done"]);
@@ -101,6 +111,8 @@ function tagBadgeClass(tag: string) {
 }
 
 function sourceBadgeClass(source: string) {
+  if (source === "income_auto") return "border-violet-200 bg-violet-50 text-violet-700";
+  if (source === "team_transfer") return "border-cyan-200 bg-cyan-50 text-cyan-700";
   if (source === "auto_monthly") return "border-blue-200 bg-blue-50 text-blue-700";
   if (source === "import") return "border-amber-200 bg-amber-50 text-amber-700";
   return "border-slate-200 bg-white text-slate-600";
@@ -168,12 +180,13 @@ export default async function TransactionsPage({
       : `Showing transactions from ${start} to ${end}`;
 
   await ensureMonthlyRecurringTransactions(month);
+  await ensurePaidIncomeTransactions(month);
 
   const supabase = await createClient();
   const transactionQuery = supabase
     .from("transactions")
     .select(
-      "id, date, category_id, direction, amount, currency, fx_rate, amount_idr, notes, save_to, source, recurring_type, recurring_template_id, generated_month, created_at, category:categories(name, tag, sort_order)"
+      "id, date, category_id, direction, amount, currency, fx_rate, amount_idr, notes, save_to, source, generated_from, source_income_transaction_id, source_team_transfer_group_id, recurring_type, recurring_template_id, generated_month, created_at, category:categories(name, tag, sort_order)"
     )
     .gte("date", start)
     .lte("date", end);

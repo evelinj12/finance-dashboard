@@ -11,6 +11,7 @@ import { calculateClientNet } from "@/lib/finance/team-net";
 import { DeleteTeamMemberButton } from "./delete-team-member-button";
 import { DeleteTeamWorkButton } from "./delete-team-work-button";
 import { TeamMemberDialog } from "./team-member-dialog";
+import { TeamTransferStatusForm, type TeamTransferPerson } from "./team-transfer-status-form";
 import { TeamWorkDialog } from "./team-work-dialog";
 import { TeamWorkQuickForm } from "./team-work-quick-form";
 
@@ -84,7 +85,7 @@ export default async function TeamPage({
     supabase
       .from("team_work_entries")
       .select(
-        "id, team_member_id, income_source_id, date, description, work_period, hours, amount, currency, fx_rate, amount_idr, status, paid_at, notes, team_member:team_members(name), income_source:income_sources(name, type)"
+        "id, team_member_id, income_source_id, transfer_group_id, date, description, work_period, hours, amount, currency, fx_rate, amount_idr, status, paid_at, notes, team_member:team_members(name), income_source:income_sources(name, type)"
       )
       .gte("date", start)
       .lt("date", end)
@@ -104,6 +105,26 @@ export default async function TeamPage({
   const memberList = members ?? [];
   const sourceList = sources ?? [];
   const teamEntries = entries ?? [];
+  const transferGroupIds = Array.from(
+    new Set(
+      teamEntries
+        .map((entry) => entry.transfer_group_id)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const { data: transferTransactions, error: transferTransactionsError } =
+    transferGroupIds.length > 0
+      ? await supabase
+          .from("transactions")
+          .select("source_team_transfer_group_id, date, amount_idr, notes")
+          .in("source_team_transfer_group_id", transferGroupIds)
+      : { data: [], error: null };
+
+  if (transferTransactionsError) {
+    throw new Error(`Failed to load Team transfer transactions: ${transferTransactionsError.message}`);
+  }
+
+  const transferTransactionRows = transferTransactions ?? [];
 
   const owedTotal = teamEntries
     .filter((entry) => entry.status === "owed")
@@ -165,6 +186,48 @@ export default async function TeamPage({
   }
 
   const clientRows = Array.from(clientSummary.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const transferPeople: TeamTransferPerson[] = memberList.map((member) => {
+    const memberTransferGroupIds = Array.from(
+      new Set(
+        teamEntries
+          .filter((entry) => entry.team_member_id === member.id && entry.transfer_group_id)
+          .map((entry) => entry.transfer_group_id)
+          .filter((value): value is string => Boolean(value))
+      )
+    );
+    const memberTransferTransactions = transferTransactionRows.filter(
+      (transaction) =>
+        transaction.source_team_transfer_group_id &&
+        memberTransferGroupIds.includes(transaction.source_team_transfer_group_id)
+    );
+    const pendingAmountIdr = teamEntries
+      .filter((entry) => entry.team_member_id === member.id && entry.status === "owed")
+      .reduce((sum, entry) => sum + entry.amount_idr, 0);
+    const transferredAmountIdr =
+      memberTransferTransactions.length > 0
+        ? memberTransferTransactions.reduce((sum, transaction) => sum + Number(transaction.amount_idr), 0)
+        : teamEntries
+            .filter((entry) => entry.team_member_id === member.id && entry.transfer_group_id)
+            .reduce((sum, entry) => sum + entry.amount_idr, 0);
+    const latestTransferDate = memberTransferTransactions
+      .map((transaction) => transaction.date)
+      .sort((a, b) => b.localeCompare(a))[0];
+    const latestPaidDate = teamEntries
+      .filter((entry) => entry.team_member_id === member.id && entry.transfer_group_id && entry.paid_at)
+      .map((entry) => entry.paid_at)
+      .filter((value): value is string => Boolean(value))
+      .sort((a, b) => b.localeCompare(a))[0];
+    const latestTransferNotes = memberTransferTransactions.find((transaction) => transaction.notes)?.notes ?? null;
+
+    return {
+      id: member.id,
+      name: member.name,
+      amountToSendIdr: transferredAmountIdr + pendingAmountIdr,
+      status: transferredAmountIdr > 0 ? "transferred" : "not_transferred",
+      transferredAt: latestTransferDate ?? latestPaidDate ?? null,
+      notes: latestTransferNotes,
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -218,6 +281,8 @@ export default async function TeamPage({
           </CardContent>
         </Card>
       </div>
+
+      <TeamTransferStatusForm selectedMonth={month} people={transferPeople} />
 
       <Card>
         <CardHeader>

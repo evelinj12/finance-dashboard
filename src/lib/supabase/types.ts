@@ -13,12 +13,14 @@ export type Json =
 export type CategoryTag = "income" | "sinking_fund" | "fixed" | "spent";
 export type TxDirection = "in" | "out";
 export type EntrySource = "manual" | "import";
-export type TransactionSource = EntrySource | "auto_monthly";
+export type TransactionSource = EntrySource | "auto_monthly" | "income_auto" | "team_transfer";
+export type GeneratedTransactionSource = "income_transaction" | "team_transfer";
 export type RecurringTransactionType = "sinking_fund" | "fixed_transaction";
 export type IncomeSourceType = "freelance_client" | "digital_product" | "other";
 export type IncomePaymentStatus = "waiting" | "paid";
 export type ContractorPaymentStatus = "owed" | "paid" | "transferred" | "unknown";
 export type TeamWorkStatus = "owed" | "paid";
+export type TeamTransferStatus = "not_transferred" | "transferred";
 export type FamilySupportDirection = "add" | "deduct";
 export type FamilyTransferStatus = "not_transferred" | "transferred";
 export type NetWorthBreakdownQuality = "full" | "total_only";
@@ -112,6 +114,9 @@ export interface Database {
           source: TransactionSource;
           source_sheet: string | null;
           source_row: string | null;
+          generated_from: GeneratedTransactionSource | null;
+          source_income_transaction_id: string | null;
+          source_team_transfer_group_id: string | null;
           recurring_type: RecurringTransactionType | null;
           recurring_template_id: string | null;
           generated_month: string | null;
@@ -227,6 +232,8 @@ export interface Database {
           status: string | null;
           payment_status: IncomePaymentStatus;
           total_hours: number | null;
+          transaction_posting_disabled: boolean;
+          transaction_posted_at: string | null;
           source: EntrySource;
           source_sheet: string | null;
           source_row: string | null;
@@ -270,6 +277,7 @@ export interface Database {
           team_member_id: string;
           income_source_id: string | null;
           source_contractor_payment_id: string | null;
+          transfer_group_id: string | null;
           date: string;
           description: string | null;
           work_period: string | null;

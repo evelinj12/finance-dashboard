@@ -28,6 +28,8 @@ interface ExistingRecurringTransaction {
   id: string;
   date: string;
   source: TransactionSource;
+  source_income_transaction_id: string | null;
+  source_team_transfer_group_id: string | null;
   recurring_type: RecurringTransactionType | null;
   recurring_template_id: string | null;
   generated_month: string | null;
@@ -133,7 +135,9 @@ export async function deleteTransaction(id: string) {
   const supabase = await createClient();
   const { data: transaction, error: readError } = await supabase
     .from("transactions")
-    .select("id, date, source, recurring_type, recurring_template_id, generated_month")
+    .select(
+      "id, date, source, source_income_transaction_id, source_team_transfer_group_id, recurring_type, recurring_template_id, generated_month"
+    )
     .eq("id", id)
     .maybeSingle<ExistingRecurringTransaction>();
 
@@ -158,8 +162,33 @@ export async function deleteTransaction(id: string) {
     if (skipError) throw new Error(skipError.message);
   }
 
+  if (transaction?.source === "income_auto" && transaction.source_income_transaction_id) {
+    const { error: disableError } = await supabase
+      .from("income_transactions")
+      .update({ transaction_posting_disabled: true, transaction_posted_at: null })
+      .eq("id", transaction.source_income_transaction_id);
+
+    if (disableError) throw new Error(disableError.message);
+  }
+
+  if (transaction?.source === "team_transfer" && transaction.source_team_transfer_group_id) {
+    const { error: entriesError } = await supabase
+      .from("team_work_entries")
+      .update({
+        status: "owed",
+        paid_at: null,
+        transfer_group_id: null,
+      })
+      .eq("transfer_group_id", transaction.source_team_transfer_group_id);
+
+    if (entriesError) throw new Error(entriesError.message);
+  }
+
   revalidatePath("/transactions");
   revalidatePath("/budget");
+  revalidatePath("/income");
+  revalidatePath("/team");
+  revalidatePath("/saving-health");
   revalidatePath("/");
 }
 
