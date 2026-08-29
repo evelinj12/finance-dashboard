@@ -512,10 +512,10 @@ export default async function TransactionsPage({
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">In</TableHead>
                 <TableHead className="text-right">Out</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead>Save to</TableHead>
+                <TableHead className="min-w-56">Notes</TableHead>
+                <TableHead className="min-w-28">Save to</TableHead>
                 <TableHead>Source</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="sticky right-0 z-20 w-24 bg-sky-50/95 text-right shadow-[-10px_0_16px_-16px_rgba(15,47,85,0.45)]" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -550,31 +550,35 @@ export default async function TransactionsPage({
                         {tagLabels[tag] ?? tag}
                       </Badge>
                     </TableCell>
-                    <TableCell>{categoryName}</TableCell>
+                    <TableCell className="whitespace-normal">{categoryName}</TableCell>
                     <TableCell className="text-right text-emerald-700">
                       {t.direction === "in" ? <Money amountIdr={t.amount_idr} /> : <span className="text-muted-foreground">-</span>}
                     </TableCell>
                     <TableCell className="text-right text-rose-600">
                       {t.direction === "out" ? <Money amountIdr={t.amount_idr} /> : <span className="text-muted-foreground">-</span>}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{t.notes || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">{t.save_to || "-"}</TableCell>
+                    <TableCell className="max-w-[30rem] whitespace-normal text-muted-foreground">
+                      {t.notes || "-"}
+                    </TableCell>
+                    <TableCell className="max-w-40 whitespace-normal text-muted-foreground">{t.save_to || "-"}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={sourceBadgeClass(t.source)}>
                         {sourceLabels[t.source] ?? t.source}
                       </Badge>
                     </TableCell>
-                    <TableCell className="flex items-center justify-end gap-1">
-                      <TransactionDialog
-                        categories={categoryList}
-                        transaction={t}
-                        trigger={
-                          <Button variant="ghost" size="icon-sm" aria-label="Edit transaction">
-                            <Pencil className="size-4" />
-                          </Button>
-                        }
-                      />
-                      <DeleteTransactionButton id={t.id} />
+                    <TableCell className="sticky right-0 z-10 bg-white/95 p-2 shadow-[-10px_0_16px_-16px_rgba(15,47,85,0.45)]">
+                      <div className="flex items-center justify-end gap-1">
+                        <TransactionDialog
+                          categories={categoryList}
+                          transaction={t}
+                          trigger={
+                            <Button variant="ghost" size="icon-sm" aria-label="Edit transaction">
+                              <Pencil className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DeleteTransactionButton id={t.id} />
+                      </div>
                     </TableCell>
                   </TableRow>,
                   showGroupSubtotal && groupTotals ? (
