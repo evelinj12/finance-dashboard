@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MoneyInput, emptyMoneyValue, moneyValueToIdr, type MoneyValue } from "@/components/money-input";
+import { todayStr } from "@/lib/dates";
 import { addTransaction, type TransactionInput } from "./actions";
 
 interface Category {
@@ -25,14 +26,8 @@ const tagLabels: Record<string, string> = {
   spent: "Spent",
 };
 
-export function TransactionQuickForm({
-  categories,
-  selectedMonth,
-}: {
-  categories: Category[];
-  selectedMonth: string;
-}) {
-  const [date, setDate] = useState(selectedMonth);
+export function TransactionQuickForm({ categories }: { categories: Category[] }) {
+  const [date, setDate] = useState(todayStr());
   const [categoryId, setCategoryId] = useState("");
   const [direction, setDirection] = useState<"in" | "out">("out");
   const [money, setMoney] = useState<MoneyValue>(emptyMoneyValue());
@@ -43,11 +38,11 @@ export function TransactionQuickForm({
   const router = useRouter();
   const categoryItems = categories.map((category) => ({
     value: category.id,
-    label: `${category.name} - ${tagLabels[category.tag] ?? category.tag}`,
+    label: category.name,
   }));
 
   function resetForm() {
-    setDate(selectedMonth);
+    setDate(todayStr());
     setCategoryId("");
     setDirection("out");
     setMoney(emptyMoneyValue());
@@ -108,13 +103,18 @@ export function TransactionQuickForm({
             <div className="flex flex-col gap-2">
               <Label>Category</Label>
               <Select items={categoryItems} value={categoryId} onValueChange={(value) => setCategoryId(value ?? "")}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent align="start" className="w-[min(22rem,calc(100vw-2rem))]">
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
-                      {category.name} - {tagLabels[category.tag] ?? category.tag}
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="truncate font-medium">{category.name}</span>
+                        <span className="text-xs font-normal text-muted-foreground">
+                          {tagLabels[category.tag] ?? category.tag}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -124,7 +124,7 @@ export function TransactionQuickForm({
             <div className="flex flex-col gap-2">
               <Label>Direction</Label>
               <Select value={direction} onValueChange={(value) => setDirection(value === "in" ? "in" : "out")}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

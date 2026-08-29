@@ -118,6 +118,11 @@ function firstCategory(
   return null;
 }
 
+function amountIdr(value: unknown): number {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
 export default async function TransactionsPage({
   searchParams,
 }: {
@@ -224,6 +229,34 @@ export default async function TransactionsPage({
 
     return (a.notes ?? "").localeCompare(b.notes ?? "");
   });
+  const transactionTotals = sortedTransactions.reduce(
+    (totals, transaction) => {
+      const amount = amountIdr(transaction.amount_idr);
+      const category = firstCategory(transaction.category);
+      const tag = category?.tag ?? "uncategorized";
+      const existing = totals.byTag.get(tag) ?? {
+        count: 0,
+        in: 0,
+        out: 0,
+      };
+
+      existing.count += 1;
+      if (transaction.direction === "in") {
+        existing.in += amount;
+        totals.in += amount;
+      } else {
+        existing.out += amount;
+        totals.out += amount;
+      }
+      totals.byTag.set(tag, existing);
+      return totals;
+    },
+    {
+      in: 0,
+      out: 0,
+      byTag: new Map<string, { count: number; in: number; out: number }>(),
+    }
+  );
   const checklistItemsList = [...(checklistItems ?? [])]
     .filter((item) => {
       if (checklistStatus === "open") return !item.completed;
@@ -249,7 +282,7 @@ export default async function TransactionsPage({
         </div>
       </div>
 
-      <TransactionQuickForm key={month} categories={categoryList} selectedMonth={month} />
+      <TransactionQuickForm categories={categoryList} />
 
       <TransactionChecklist
         month={month}
@@ -354,9 +387,13 @@ export default async function TransactionsPage({
         {sortedTransactions.map((t, index) => {
           const category = firstCategory(t.category);
           const previousCategory = index > 0 ? firstCategory(sortedTransactions[index - 1].category) : null;
+          const nextCategory =
+            index < sortedTransactions.length - 1 ? firstCategory(sortedTransactions[index + 1].category) : null;
           const categoryName = category?.name ?? "-";
           const tag = category?.tag ?? "uncategorized";
           const showGroup = txSort === "tag" && tag !== (previousCategory?.tag ?? "");
+          const showGroupSubtotal = txSort === "tag" && tag !== (nextCategory?.tag ?? "");
+          const groupTotals = transactionTotals.byTag.get(tag);
           const signedTone = t.direction === "in" ? "text-emerald-700" : "text-rose-600";
 
           return (
@@ -413,6 +450,28 @@ export default async function TransactionsPage({
                   </div>
                 </CardContent>
               </Card>
+              {showGroupSubtotal && groupTotals ? (
+                <div className="rounded-lg border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm shadow-sm shadow-sky-950/5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold">Subtotal {tagLabels[tag] ?? tag}</span>
+                    <span className="text-xs text-muted-foreground">{groupTotals.count} entries</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">In</p>
+                      <p className="money-figures font-semibold text-emerald-700">
+                        <Money amountIdr={groupTotals.in} />
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Out</p>
+                      <p className="money-figures font-semibold text-rose-600">
+                        <Money amountIdr={groupTotals.out} />
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -420,6 +479,24 @@ export default async function TransactionsPage({
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
               No transactions in this date range.
+            </CardContent>
+          </Card>
+        ) : null}
+        {sortedTransactions.length > 0 ? (
+          <Card className="border-sky-200 bg-sky-50/80">
+            <CardContent className="grid grid-cols-2 gap-3 p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">Total in</p>
+                <p className="money-figures text-lg font-bold text-emerald-700">
+                  <Money amountIdr={transactionTotals.in} />
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">Total out</p>
+                <p className="money-figures text-lg font-bold text-rose-600">
+                  <Money amountIdr={transactionTotals.out} />
+                </p>
+              </div>
             </CardContent>
           </Card>
         ) : null}
@@ -448,9 +525,15 @@ export default async function TransactionsPage({
                   index > 0
                     ? firstCategory(sortedTransactions[index - 1].category)
                     : null;
+                const nextCategory =
+                  index < sortedTransactions.length - 1
+                    ? firstCategory(sortedTransactions[index + 1].category)
+                    : null;
                 const categoryName = category?.name ?? "-";
                 const tag = category?.tag ?? "uncategorized";
                 const showGroup = txSort === "tag" && tag !== (previousCategory?.tag ?? "");
+                const showGroupSubtotal = txSort === "tag" && tag !== (nextCategory?.tag ?? "");
+                const groupTotals = transactionTotals.byTag.get(tag);
 
                 return [
                   showGroup ? (
@@ -494,8 +577,39 @@ export default async function TransactionsPage({
                       <DeleteTransactionButton id={t.id} />
                     </TableCell>
                   </TableRow>,
+                  showGroupSubtotal && groupTotals ? (
+                    <TableRow key={`${tag}-subtotal`} className="bg-sky-50/40 hover:bg-sky-50/40">
+                      <TableCell colSpan={3} className="py-2 text-sm font-semibold text-sky-950">
+                        Subtotal {tagLabels[tag] ?? tag}
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {groupTotals.count} entries
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-2 text-right font-semibold text-emerald-700">
+                        <Money amountIdr={groupTotals.in} />
+                      </TableCell>
+                      <TableCell className="py-2 text-right font-semibold text-rose-600">
+                        <Money amountIdr={groupTotals.out} />
+                      </TableCell>
+                      <TableCell colSpan={4} />
+                    </TableRow>
+                  ) : null,
                 ];
               })}
+              {sortedTransactions.length > 0 && (
+                <TableRow className="bg-sky-100/80 hover:bg-sky-100/80">
+                  <TableCell colSpan={3} className="py-3 text-base font-bold text-sky-950">
+                    Total shown
+                  </TableCell>
+                  <TableCell className="py-3 text-right font-bold text-emerald-700">
+                    <Money amountIdr={transactionTotals.in} />
+                  </TableCell>
+                  <TableCell className="py-3 text-right font-bold text-rose-600">
+                    <Money amountIdr={transactionTotals.out} />
+                  </TableCell>
+                  <TableCell colSpan={4} />
+                </TableRow>
+              )}
               {sortedTransactions.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center text-muted-foreground py-8">

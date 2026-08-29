@@ -73,7 +73,7 @@ export function TransactionDialog({
   const router = useRouter();
   const categoryItems = categories.map((category) => ({
     value: category.id,
-    label: `${category.name} - ${tagLabels[category.tag] ?? category.tag}`,
+    label: category.name,
   }));
 
   async function handleSave() {
@@ -129,7 +129,7 @@ export function TransactionDialog({
             <div className="flex flex-col gap-2">
               <Label>Direction</Label>
               <Select value={direction} onValueChange={(v) => v && setDirection(v as "in" | "out")}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -143,13 +143,18 @@ export function TransactionDialog({
           <div className="flex flex-col gap-2">
             <Label>Category</Label>
             <Select items={categoryItems} value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent align="start" className="w-[min(22rem,calc(100vw-2rem))]">
                 {categories.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name} - {tagLabels[c.tag] ?? c.tag}
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="truncate font-medium">{c.name}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {tagLabels[c.tag] ?? c.tag}
+                      </span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
