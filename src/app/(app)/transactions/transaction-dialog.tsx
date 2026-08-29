@@ -44,6 +44,15 @@ const tagLabels: Record<string, string> = {
   spent: "Spent",
 };
 
+function defaultTag(categories: Category[]) {
+  if (categories.some((category) => category.tag === "spent")) return "spent";
+  return categories[0]?.tag ?? "spent";
+}
+
+function tagForCategory(categories: Category[], categoryId: string) {
+  return categories.find((category) => category.id === categoryId)?.tag ?? defaultTag(categories);
+}
+
 export function TransactionDialog({
   categories,
   transaction,
@@ -57,6 +66,7 @@ export function TransactionDialog({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [date, setDate] = useState(transaction?.date ?? todayStr());
+  const [selectedTag, setSelectedTag] = useState(tagForCategory(categories, transaction?.category_id ?? ""));
   const [categoryId, setCategoryId] = useState(transaction?.category_id ?? "");
   const [direction, setDirection] = useState<"in" | "out">(transaction?.direction ?? "out");
   const [money, setMoney] = useState<MoneyValue>(
@@ -71,10 +81,22 @@ export function TransactionDialog({
   const [notes, setNotes] = useState(transaction?.notes ?? "");
   const [saveTo, setSaveTo] = useState(transaction?.save_to ?? "");
   const router = useRouter();
-  const categoryItems = categories.map((category) => ({
+  const availableTags = Object.entries(tagLabels).filter(([tag]) =>
+    categories.some((category) => category.tag === tag)
+  );
+  const filteredCategories = categories.filter((category) => category.tag === selectedTag);
+  const tagItems = availableTags.map(([tag, label]) => ({ value: tag, label }));
+  const categoryItems = filteredCategories.map((category) => ({
     value: category.id,
     label: category.name,
   }));
+
+  function handleTagChange(value: string | null) {
+    if (!value) return;
+    setSelectedTag(value);
+    setCategoryId("");
+    setDirection(value === "income" ? "in" : "out");
+  }
 
   async function handleSave() {
     if (!categoryId || !money.amount) {
@@ -140,25 +162,37 @@ export function TransactionDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label>Category</Label>
-            <Select items={categoryItems} value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent align="start" className="w-[min(22rem,calc(100vw-2rem))]">
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="truncate font-medium">{c.name}</span>
-                      <span className="text-xs font-normal text-muted-foreground">
-                        {tagLabels[c.tag] ?? c.tag}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label>Tag</Label>
+              <Select items={tagItems} value={selectedTag} onValueChange={handleTagChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select tag" />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  {availableTags.map(([tag, label]) => (
+                    <SelectItem key={tag} value={tag}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Category</Label>
+              <Select items={categoryItems} value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent align="start" className="w-[min(22rem,calc(100vw-2rem))]">
+                  {filteredCategories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <MoneyInput value={money} onChange={setMoney} />

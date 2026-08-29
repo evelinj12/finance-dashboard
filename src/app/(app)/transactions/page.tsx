@@ -453,7 +453,7 @@ export default async function TransactionsPage({
               {showGroupSubtotal && groupTotals ? (
                 <div className="rounded-lg border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm shadow-sm shadow-sky-950/5">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="font-semibold">Subtotal {tagLabels[tag] ?? tag}</span>
+                    <span className="font-semibold">Subtotal</span>
                     <span className="text-xs text-muted-foreground">{groupTotals.count} entries</span>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-3">
@@ -580,7 +580,7 @@ export default async function TransactionsPage({
                   showGroupSubtotal && groupTotals ? (
                     <TableRow key={`${tag}-subtotal`} className="bg-sky-50/40 hover:bg-sky-50/40">
                       <TableCell colSpan={3} className="py-2 text-sm font-semibold text-sky-950">
-                        Subtotal {tagLabels[tag] ?? tag}
+                        Subtotal
                         <span className="ml-2 text-xs font-normal text-muted-foreground">
                           {groupTotals.count} entries
                         </span>

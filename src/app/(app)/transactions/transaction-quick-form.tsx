@@ -26,8 +26,14 @@ const tagLabels: Record<string, string> = {
   spent: "Spent",
 };
 
+function defaultTag(categories: Category[]) {
+  if (categories.some((category) => category.tag === "spent")) return "spent";
+  return categories[0]?.tag ?? "spent";
+}
+
 export function TransactionQuickForm({ categories }: { categories: Category[] }) {
   const [date, setDate] = useState(todayStr());
+  const [selectedTag, setSelectedTag] = useState(defaultTag(categories));
   const [categoryId, setCategoryId] = useState("");
   const [direction, setDirection] = useState<"in" | "out">("out");
   const [money, setMoney] = useState<MoneyValue>(emptyMoneyValue());
@@ -36,13 +42,26 @@ export function TransactionQuickForm({ categories }: { categories: Category[] })
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
-  const categoryItems = categories.map((category) => ({
+  const availableTags = Object.entries(tagLabels).filter(([tag]) =>
+    categories.some((category) => category.tag === tag)
+  );
+  const filteredCategories = categories.filter((category) => category.tag === selectedTag);
+  const tagItems = availableTags.map(([tag, label]) => ({ value: tag, label }));
+  const categoryItems = filteredCategories.map((category) => ({
     value: category.id,
     label: category.name,
   }));
 
+  function handleTagChange(value: string | null) {
+    if (!value) return;
+    setSelectedTag(value);
+    setCategoryId("");
+    setDirection(value === "income" ? "in" : "out");
+  }
+
   function resetForm() {
     setDate(todayStr());
+    setSelectedTag(defaultTag(categories));
     setCategoryId("");
     setDirection("out");
     setMoney(emptyMoneyValue());
@@ -95,10 +114,25 @@ export function TransactionQuickForm({ categories }: { categories: Category[] })
       </CardHeader>
       <CardContent className="p-4">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="grid gap-3 md:grid-cols-[minmax(130px,0.75fr)_minmax(180px,1.2fr)_minmax(220px,1.4fr)_minmax(150px,0.9fr)]">
+          <div className="grid gap-3 md:grid-cols-[minmax(130px,0.7fr)_minmax(145px,0.8fr)_minmax(180px,1.1fr)_minmax(220px,1.4fr)_minmax(130px,0.75fr)]">
             <div className="flex flex-col gap-2">
               <Label>Date</Label>
               <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Tag</Label>
+              <Select items={tagItems} value={selectedTag} onValueChange={handleTagChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select tag" />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  {availableTags.map(([tag, label]) => (
+                    <SelectItem key={tag} value={tag}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-2">
               <Label>Category</Label>
@@ -107,14 +141,9 @@ export function TransactionQuickForm({ categories }: { categories: Category[] })
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent align="start" className="w-[min(22rem,calc(100vw-2rem))]">
-                  {categories.map((category) => (
+                  {filteredCategories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
-                      <span className="flex min-w-0 flex-col gap-0.5">
-                        <span className="truncate font-medium">{category.name}</span>
-                        <span className="text-xs font-normal text-muted-foreground">
-                          {tagLabels[category.tag] ?? category.tag}
-                        </span>
-                      </span>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
