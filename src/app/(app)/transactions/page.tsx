@@ -168,7 +168,7 @@ export default async function TransactionsPage({
   const transactionQuery = supabase
     .from("transactions")
     .select(
-      "id, date, category_id, direction, amount, currency, fx_rate, amount_idr, notes, save_to, source, recurring_type, recurring_template_id, generated_month, category:categories(name, tag, sort_order)"
+      "id, date, category_id, direction, amount, currency, fx_rate, amount_idr, notes, save_to, source, recurring_type, recurring_template_id, generated_month, created_at, category:categories(name, tag, sort_order)"
     )
     .gte("date", start)
     .lte("date", end);
@@ -216,8 +216,8 @@ export default async function TransactionsPage({
     const tagDiff = (tagOrder[aTag] ?? 99) - (tagOrder[bTag] ?? 99);
     if (tagDiff !== 0) return tagDiff;
 
-    const categoryDiff = (aCategory?.sort_order ?? 999) - (bCategory?.sort_order ?? 999);
-    if (categoryDiff !== 0) return categoryDiff;
+    const submittedDiff = (b.created_at ?? "").localeCompare(a.created_at ?? "");
+    if (submittedDiff !== 0) return submittedDiff;
 
     const dateDiff = b.date.localeCompare(a.date);
     if (dateDiff !== 0) return dateDiff;
@@ -329,7 +329,7 @@ export default async function TransactionsPage({
                 defaultValue={txSort}
                 className="h-10 rounded-lg border border-input bg-white/75 px-3 text-sm shadow-sm shadow-sky-950/5 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35"
               >
-                <option value="tag">Tag group</option>
+                <option value="tag">Tag group, newest submissions</option>
                 <option value="date_desc">Newest first</option>
                 <option value="date_asc">Oldest first</option>
                 <option value="amount_desc">Amount high-low</option>
