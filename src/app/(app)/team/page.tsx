@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Money } from "@/components/money";
+import { DurationDisplay } from "@/components/duration-display";
 import { MonthPicker } from "@/components/month-picker";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
@@ -277,7 +278,7 @@ export default async function TeamPage({
             <CardTitle className="text-sm font-medium text-muted-foreground">Team hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-semibold tabular-nums">{teamHours.toLocaleString()}</div>
+            <DurationDisplay hours={teamHours} align="left" className="text-xl font-semibold" />
           </CardContent>
         </Card>
       </div>
@@ -310,15 +311,21 @@ export default async function TeamPage({
                     <TableCell className="text-right">
                       <Money amountIdr={row.grossAmountIdr} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{row.grossHours.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      <DurationDisplay hours={row.grossHours} />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Money amountIdr={row.teamAmountIdr} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{row.teamHours.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      <DurationDisplay hours={row.teamHours} />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Money amountIdr={net.netAmountIdr} signed />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{net.netHours.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      <DurationDisplay hours={net.netHours} />
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -425,7 +432,9 @@ export default async function TeamPage({
                   <TableCell>{relatedName(entry.income_source as RelatedName | RelatedName[] | null)}</TableCell>
                   <TableCell className="text-muted-foreground">{entry.description ?? "-"}</TableCell>
                   <TableCell className="text-muted-foreground">{entry.work_period ?? "-"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{entry.hours ?? "-"}</TableCell>
+                  <TableCell className="text-right">
+                    <DurationDisplay hours={entry.hours} />
+                  </TableCell>
                   <TableCell>
                     <Badge variant={entry.status === "owed" ? "destructive" : "secondary"}>
                       {statusLabels[entry.status]}

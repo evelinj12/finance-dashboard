@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MoneyInput, emptyMoneyValue, type MoneyValue } from "@/components/money-input";
+import { durationInputHint, parseDurationInput } from "@/lib/duration";
 import type { TeamWorkStatus } from "@/lib/supabase/types";
 import { addTeamWorkEntry, type TeamWorkEntryInput } from "./actions";
 
@@ -55,11 +56,13 @@ export function TeamWorkQuickForm({
     { value: "none", label: "No client" },
     ...sources.map((source) => ({ value: source.id, label: source.name })),
   ];
+  const hoursHint = durationInputHint(hours);
+  const hoursInvalid = hours.trim() !== "" && hoursHint === null;
 
   function buildInput(): TeamWorkEntryInput | null {
     const amount = Number(money.amount);
     const fxRate = money.currency === "IDR" ? 1 : Number(money.fxRate);
-    const parsedHours = Number(hours);
+    const parsedHours = parseDurationInput(hours);
 
     if (!memberId) {
       toast.error("Team member is required");
@@ -73,8 +76,8 @@ export function TeamWorkQuickForm({
       toast.error("FX rate must be greater than zero");
       return null;
     }
-    if (hours.trim() !== "" && (!Number.isFinite(parsedHours) || parsedHours < 0)) {
-      toast.error("Hours must be zero or greater");
+    if (hours.trim() !== "" && parsedHours === null) {
+      toast.error("Hours can be 1:50, 110m, 1h 50m, or 1.83");
       return null;
     }
 
@@ -182,7 +185,21 @@ export function TeamWorkQuickForm({
         <div className="grid gap-4 md:grid-cols-4">
           <div className="flex flex-col gap-2">
             <Label>Hours</Label>
-            <Input type="number" min="0" step="any" value={hours} onChange={(event) => setHours(event.target.value)} />
+            <Input
+              type="text"
+              inputMode="text"
+              value={hours}
+              onChange={(event) => setHours(event.target.value)}
+              placeholder="1:50, 110m, 1h 50m"
+              aria-invalid={hoursInvalid}
+            />
+            <p className={`text-xs ${hoursInvalid ? "text-destructive" : "text-muted-foreground"}`}>
+              {hoursInvalid
+                ? "Use 1:50, 110m, 1h 50m, or 1.83."
+                : hoursHint
+                  ? `Saved as ${hoursHint}.`
+                  : "Accepts hh:mm:ss, minutes, or decimal hours."}
+            </p>
           </div>
           <MoneyInput value={money} onChange={setMoney} />
           <div className="flex flex-col gap-2">

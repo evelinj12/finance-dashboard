@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MoneyInput, emptyMoneyValue, type MoneyValue } from "@/components/money-input";
 import { todayStr } from "@/lib/dates";
+import { durationInputHint, parseDurationInput } from "@/lib/duration";
 import { addContractorPayment } from "./actions";
 
 const paymentStatuses = ["owed", "paid", "transferred", "unknown"] as const;
@@ -47,6 +48,8 @@ export function PaymentDialog({ recentIncome }: { recentIncome: RecentIncome[] }
   const [notes, setNotes] = useState("");
   const [relatedIncomeId, setRelatedIncomeId] = useState<string>("none");
   const router = useRouter();
+  const hoursHint = durationInputHint(hours);
+  const hoursInvalid = hours.trim() !== "" && hoursHint === null;
 
   async function handleSave() {
     const amount = Number(money.amount);
@@ -61,9 +64,9 @@ export function PaymentDialog({ recentIncome }: { recentIncome: RecentIncome[] }
       return;
     }
 
-    const parsedHours = Number(hours);
-    if (hours.trim() !== "" && (!Number.isFinite(parsedHours) || parsedHours < 0)) {
-      toast.error("Hours must be zero or greater");
+    const parsedHours = parseDurationInput(hours);
+    if (hours.trim() !== "" && parsedHours === null) {
+      toast.error("Hours can be 1:50, 110m, 1h 50m, or 1.83");
       return;
     }
     const normalizedHours = hours.trim() === "" ? null : parsedHours;
@@ -140,13 +143,20 @@ export function PaymentDialog({ recentIncome }: { recentIncome: RecentIncome[] }
             <div className="flex flex-col gap-2">
               <Label>Hours</Label>
               <Input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="text"
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
-                placeholder="0"
+                placeholder="1:50, 110m, 1h 50m"
+                aria-invalid={hoursInvalid}
               />
+              <p className={`text-xs ${hoursInvalid ? "text-destructive" : "text-muted-foreground"}`}>
+                {hoursInvalid
+                  ? "Use 1:50, 110m, 1h 50m, or 1.83."
+                  : hoursHint
+                    ? `Saved as ${hoursHint}.`
+                    : "Accepts hh:mm:ss, minutes, or decimal hours."}
+              </p>
             </div>
             <div className="flex flex-col gap-2">
               <Label>Status</Label>

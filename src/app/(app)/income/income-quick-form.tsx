@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCIES, emptyMoneyValue, moneyValueToIdr, type MoneyValue } from "@/components/money-input";
 import { DEFAULT_USD_IDR_RATE, formatMoney } from "@/lib/currency";
+import { durationInputHint, parseDurationInput } from "@/lib/duration";
 import type { IncomePaymentStatus } from "@/lib/supabase/types";
 import { addIncomeTransaction, type IncomeTransactionInput } from "./actions";
 import { incomePaymentStatusLabel } from "./income-summary";
@@ -38,6 +39,8 @@ export function IncomeQuickForm({
   const [saving, setSaving] = useState(false);
   const router = useRouter();
   const sourceItems = sources.map((source) => ({ value: source.id, label: source.name }));
+  const totalHoursHint = durationInputHint(totalHours);
+  const totalHoursInvalid = totalHours.trim() !== "" && totalHoursHint === null;
 
   function resetForm() {
     setSourceId("");
@@ -64,6 +67,11 @@ export function IncomeQuickForm({
       toast.error("Source and amount are required");
       return;
     }
+    const parsedTotalHours = parseDurationInput(totalHours);
+    if (totalHours.trim() !== "" && parsedTotalHours === null) {
+      toast.error("Total hours can be 1:50, 110m, 1h 50m, or 1.83");
+      return;
+    }
 
     setSaving(true);
     const input: IncomeTransactionInput = {
@@ -75,7 +83,7 @@ export function IncomeQuickForm({
       fx_rate: money.currency === "IDR" ? 1 : Number(money.fxRate) || 1,
       amount_idr: moneyValueToIdr(money),
       payment_status: paymentStatus,
-      total_hours: totalHours === "" ? null : Number(totalHours),
+      total_hours: totalHours.trim() === "" ? null : parsedTotalHours,
     };
 
     try {
@@ -153,13 +161,20 @@ export function IncomeQuickForm({
             <div className="flex flex-col gap-2">
               <Label>Total hours</Label>
               <Input
-                type="number"
-                step="0.25"
-                min="0"
-                placeholder="0"
+                type="text"
+                inputMode="text"
+                placeholder="1:50, 110m, 1h 50m"
                 value={totalHours}
                 onChange={(event) => setTotalHours(event.target.value)}
+                aria-invalid={totalHoursInvalid}
               />
+              <p className={`text-xs ${totalHoursInvalid ? "text-destructive" : "text-muted-foreground"}`}>
+                {totalHoursInvalid
+                  ? "Use 1:50, 110m, 1h 50m, or 1.83."
+                  : totalHoursHint
+                    ? `Saved as ${totalHoursHint}.`
+                    : "Accepts hh:mm:ss, minutes, or decimal hours."}
+              </p>
             </div>
           </div>
 

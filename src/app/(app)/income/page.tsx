@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Money } from "@/components/money";
+import { DurationDisplay } from "@/components/duration-display";
 import { MonthPicker } from "@/components/month-picker";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
@@ -285,15 +286,21 @@ export default async function IncomePage({
                   <TableCell className="text-right">
                     <Money amountIdr={row.grossAmountIdr} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{row.grossHours.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    <DurationDisplay hours={row.grossHours} />
+                  </TableCell>
                   <TableCell className="text-right">
                     <Money amountIdr={row.teamAmountIdr} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{row.teamHours.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    <DurationDisplay hours={row.teamHours} />
+                  </TableCell>
                   <TableCell className="text-right">
                     <Money amountIdr={row.netAmountIdr} signed />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{row.netHours.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    <DurationDisplay hours={row.netHours} />
+                  </TableCell>
                 </TableRow>
               ))}
               {incomeSummary.clientRows.length === 0 && (
@@ -338,7 +345,9 @@ export default async function IncomePage({
                         {incomePaymentStatusLabel(paymentStatus)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{t.total_hours?.toLocaleString() ?? "-"}</TableCell>
+                    <TableCell className="text-right">
+                      <DurationDisplay hours={t.total_hours} />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Money amountIdr={t.amount_idr} />
                     </TableCell>
@@ -396,7 +405,9 @@ export default async function IncomePage({
                   <TableCell>{relatedName(entry.income_source)}</TableCell>
                   <TableCell className="text-muted-foreground">{entry.description ?? "-"}</TableCell>
                   <TableCell className="text-muted-foreground">{entry.work_period ?? "-"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{entry.hours?.toLocaleString() ?? "-"}</TableCell>
+                  <TableCell className="text-right">
+                    <DurationDisplay hours={entry.hours} />
+                  </TableCell>
                   <TableCell>
                     <Badge variant={entry.status === "owed" ? "destructive" : "secondary"}>
                       {teamStatusLabels[entry.status]}

@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MoneyInput, emptyMoneyValue, moneyValueToIdr, type MoneyValue } from "@/components/money-input";
 import { todayStr } from "@/lib/dates";
+import { durationInputHint, formatHoursAsDuration, parseDurationInput } from "@/lib/duration";
 import type { IncomePaymentStatus } from "@/lib/supabase/types";
 import { addIncomeTransaction, updateIncomeTransaction, type IncomeTransactionInput } from "./actions";
 import { incomePaymentStatusLabel, normalizeIncomePaymentStatus } from "./income-summary";
@@ -63,13 +64,22 @@ export function IncomeDialog({
   const [paymentStatus, setPaymentStatus] = useState<IncomePaymentStatus>(
     normalizeIncomePaymentStatus(income?.payment_status, income?.status)
   );
-  const [totalHours, setTotalHours] = useState(income?.total_hours == null ? "" : String(income.total_hours));
+  const [totalHours, setTotalHours] = useState(
+    income?.total_hours == null ? "" : formatHoursAsDuration(income.total_hours)
+  );
   const router = useRouter();
   const sourceItems = sources.map((source) => ({ value: source.id, label: source.name }));
+  const totalHoursHint = durationInputHint(totalHours);
+  const totalHoursInvalid = totalHours.trim() !== "" && totalHoursHint === null;
 
   async function handleSave() {
     if (!sourceId || !money.amount) {
       toast.error("Source and amount are required");
+      return;
+    }
+    const parsedTotalHours = parseDurationInput(totalHours);
+    if (totalHours.trim() !== "" && parsedTotalHours === null) {
+      toast.error("Total hours can be 1:50, 110m, 1h 50m, or 1.83");
       return;
     }
     setSaving(true);
@@ -82,7 +92,7 @@ export function IncomeDialog({
       fx_rate: money.currency === "IDR" ? 1 : Number(money.fxRate) || 1,
       amount_idr: moneyValueToIdr(money),
       payment_status: paymentStatus,
-      total_hours: totalHours === "" ? null : Number(totalHours),
+      total_hours: totalHours.trim() === "" ? null : parsedTotalHours,
     };
     try {
       if (isEdit) {
@@ -167,13 +177,20 @@ export function IncomeDialog({
             <div className="flex flex-col gap-2">
               <Label>Total hours</Label>
               <Input
-                type="number"
-                step="0.25"
-                min="0"
+                type="text"
+                inputMode="text"
                 value={totalHours}
                 onChange={(event) => setTotalHours(event.target.value)}
-                placeholder="0"
+                placeholder="1:50, 110m, 1h 50m"
+                aria-invalid={totalHoursInvalid}
               />
+              <p className={`text-xs ${totalHoursInvalid ? "text-destructive" : "text-muted-foreground"}`}>
+                {totalHoursInvalid
+                  ? "Use 1:50, 110m, 1h 50m, or 1.83."
+                  : totalHoursHint
+                    ? `Saved as ${totalHoursHint}.`
+                    : "Accepts hh:mm:ss, minutes, or decimal hours."}
+              </p>
             </div>
           </div>
         </div>
