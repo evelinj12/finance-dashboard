@@ -45,6 +45,10 @@ export async function signUpTeamAccess(formData: FormData) {
 }
 
 export async function signInTeamAccessWithGoogle() {
+  if (process.env.NEXT_PUBLIC_TEAM_ACCESS_GOOGLE_ENABLED !== "true") {
+    redirect(teamAccessLoginUrl("Google sign-in is not enabled yet. Use email sign-in for now."));
+  }
+
   const supabase = await createClient();
   const redirectTo = `${await origin()}/auth/callback?next=/team-access`;
   const { data, error } = await supabase.auth.signInWithOAuth({

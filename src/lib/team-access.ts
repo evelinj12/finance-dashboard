@@ -22,6 +22,16 @@ type TeamAccessRow = {
   team_member: { name: string; active: boolean } | { name: string; active: boolean }[] | null;
 };
 
+function isRecoverableAuthError(error: { message?: string } | null) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return (
+    message.includes("auth session missing") ||
+    message.includes("jwt expired") ||
+    message.includes("jwt issued at future") ||
+    message.includes("invalid jwt")
+  );
+}
+
 function normalizeProfile(row: TeamAccessRow): TeamAccessProfile {
   const teamMember = Array.isArray(row.team_member) ? row.team_member[0] : row.team_member;
   return {
@@ -40,6 +50,7 @@ export async function getTeamAccessProfile(supabase: SupabaseServerClient): Prom
     error: userError,
   } = await supabase.auth.getUser();
 
+  if (isRecoverableAuthError(userError)) return null;
   if (userError) throw new Error(userError.message);
   if (!user) return null;
 
@@ -90,6 +101,7 @@ export async function getCurrentUser(supabase: SupabaseServerClient) {
     error,
   } = await supabase.auth.getUser();
 
+  if (isRecoverableAuthError(error)) return null;
   if (error) throw new Error(error.message);
   return user;
 }

@@ -14,6 +14,7 @@ export default async function TeamAccessLoginPage({
   searchParams: Promise<{ error?: string; message?: string }>;
 }) {
   const { error, message } = await searchParams;
+  const googleEnabled = process.env.NEXT_PUBLIC_TEAM_ACCESS_GOOGLE_ENABLED === "true";
   const supabase = await createClient();
   const {
     data: { user },
@@ -55,17 +56,21 @@ export default async function TeamAccessLoginPage({
           <CardDescription>Team access for submitting work time.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form action={signInTeamAccessWithGoogle}>
-            <Button type="submit" variant="outline" className="h-12 w-full bg-white">
-              Continue with Google
-            </Button>
-          </form>
+          {googleEnabled ? (
+            <>
+              <form action={signInTeamAccessWithGoogle}>
+                <Button type="submit" variant="outline" className="h-12 w-full bg-white">
+                  Continue with Google
+                </Button>
+              </form>
 
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            or
-            <div className="h-px flex-1 bg-border" />
-          </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                or
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </>
+          ) : null}
 
           <form action={signInTeamAccess} className="space-y-3">
             <div className="space-y-2">
