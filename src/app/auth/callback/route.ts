@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
-      const loginPath = next.startsWith("/team-access") ? "/team-access/login" : "/login";
+      const loginPath = next.startsWith("/team-access") ? "/team-login" : "/login";
       const loginUrl = new URL(loginPath, requestUrl.origin);
       loginUrl.searchParams.set("error", error.message);
       return NextResponse.redirect(loginUrl);

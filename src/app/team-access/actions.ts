@@ -1,14 +1,22 @@
 "use server";
 
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseDurationInput } from "@/lib/duration";
 import { getTeamAccessProfile } from "@/lib/team-access";
 
-function teamAccessLoginUrl(message: string, type: "error" | "message" = "error") {
-  return `/team-access/login?${type}=${encodeURIComponent(message)}`;
+const teamAccessLoginPaths = new Set(["/team-login", "/team-access/login"]);
+
+function teamAccessLoginPath(formData?: FormData) {
+  const path = String(formData?.get("login_path") ?? "");
+  return teamAccessLoginPaths.has(path) ? path : "/team-login";
+}
+
+function teamAccessLoginUrl(message: string, type: "error" | "message" = "error", path = "/team-login") {
+  const loginPath = teamAccessLoginPaths.has(path) ? path : "/team-login";
+  return `${loginPath}?${type}=${encodeURIComponent(message)}`;
 }
 
 async function origin() {
@@ -18,17 +26,19 @@ async function origin() {
 export async function signInTeamAccess(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const loginPath = teamAccessLoginPath(formData);
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) redirect(teamAccessLoginUrl(error.message));
+  if (error) redirect(teamAccessLoginUrl(error.message, "error", loginPath));
   redirect("/team-access");
 }
 
 export async function signUpTeamAccess(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const loginPath = teamAccessLoginPath(formData);
   const redirectTo = `${await origin()}/auth/callback?next=/team-access`;
 
   const supabase = await createClient();
@@ -38,15 +48,17 @@ export async function signUpTeamAccess(formData: FormData) {
     options: { emailRedirectTo: redirectTo },
   });
 
-  if (error) redirect(teamAccessLoginUrl(error.message));
+  if (error) redirect(teamAccessLoginUrl(error.message, "error", loginPath));
   if (data.session) redirect("/team-access");
 
-  redirect(teamAccessLoginUrl("Check your email to confirm your account, then sign in here.", "message"));
+  redirect(teamAccessLoginUrl("Check your email to confirm your account, then sign in here.", "message", loginPath));
 }
 
-export async function signInTeamAccessWithGoogle() {
+export async function signInTeamAccessWithGoogle(formData?: FormData) {
+  const loginPath = teamAccessLoginPath(formData);
+
   if (process.env.NEXT_PUBLIC_TEAM_ACCESS_GOOGLE_ENABLED !== "true") {
-    redirect(teamAccessLoginUrl("Google sign-in is not enabled yet. Use email sign-in for now."));
+    redirect(teamAccessLoginUrl("Google sign-in is not enabled yet. Use email sign-in for now.", "error", loginPath));
   }
 
   const supabase = await createClient();
@@ -56,15 +68,15 @@ export async function signInTeamAccessWithGoogle() {
     options: { redirectTo },
   });
 
-  if (error) redirect(teamAccessLoginUrl(error.message));
+  if (error) redirect(teamAccessLoginUrl(error.message, "error", loginPath));
   if (data.url) redirect(data.url);
-  redirect(teamAccessLoginUrl("Could not start Google sign-in."));
+  redirect(teamAccessLoginUrl("Could not start Google sign-in.", "error", loginPath));
 }
 
 export async function signOutTeamAccess() {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/team-access/login");
+  redirect("/team-login");
 }
 
 export async function submitTeamAccessWork(formData: FormData) {

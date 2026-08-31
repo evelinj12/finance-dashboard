@@ -33,6 +33,7 @@ export async function updateSession(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
   const isTeamAccessRoute = request.nextUrl.pathname.startsWith("/team-access");
   const isTeamAccessLoginPage = request.nextUrl.pathname.startsWith("/team-access/login");
+  const isTeamLoginPage = request.nextUrl.pathname.startsWith("/team-login");
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
 
   if (isAuthCallback) {
@@ -41,11 +42,11 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && isTeamAccessRoute && !isTeamAccessLoginPage) {
     const url = request.nextUrl.clone();
-    url.pathname = "/team-access/login";
+    url.pathname = "/team-login";
     return NextResponse.redirect(url);
   }
 
-  if (!user && !isLoginPage && !isTeamAccessLoginPage) {
+  if (!user && !isLoginPage && !isTeamAccessLoginPage && !isTeamLoginPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
