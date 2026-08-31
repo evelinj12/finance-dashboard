@@ -27,6 +27,7 @@ export function MonthPicker({ month, resetParamsOnChange = [] }: { month: string
   const searchParams = useSearchParams();
   const selectedYear = Number(month.slice(0, 4));
   const selectedMonth = month.slice(5, 7);
+  const selectedMonthLabel = MONTHS.find((monthOption) => monthOption.value === selectedMonth)?.label ?? selectedMonth;
   const currentYear = Number(monthStart().slice(0, 4));
   const minYear = Math.min(selectedYear, currentYear) - 5;
   const maxYear = Math.max(selectedYear, currentYear) + 5;
@@ -56,7 +57,7 @@ export function MonthPicker({ month, resetParamsOnChange = [] }: { month: string
       </Button>
       <Select value={selectedMonth} onValueChange={setMonthPart}>
         <SelectTrigger size="sm" className="min-w-28 border-0 bg-transparent px-2 shadow-none" aria-label="Choose month">
-          <SelectValue />
+          <SelectValue>{selectedMonthLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent align="center" className="min-w-32">
           {MONTHS.map((monthOption) => (

@@ -23,6 +23,8 @@ interface TeamMember {
   active: boolean;
   default_currency: string;
   notes: string | null;
+  access_email?: string | null;
+  access_active?: boolean;
 }
 
 const currencies = ["IDR", "USD", "AUD"];
@@ -40,6 +42,8 @@ export function TeamMemberDialog({
   const [name, setName] = useState(member?.name ?? "");
   const [currency, setCurrency] = useState(member?.default_currency ?? "IDR");
   const [active, setActive] = useState(member?.active ?? true);
+  const [accessEmail, setAccessEmail] = useState(member?.access_email ?? "");
+  const [accessActive, setAccessActive] = useState(member?.access_active ?? true);
   const [notes, setNotes] = useState(member?.notes ?? "");
   const router = useRouter();
 
@@ -48,6 +52,8 @@ export function TeamMemberDialog({
       name,
       default_currency: currency,
       active,
+      access_email: accessEmail.trim() || null,
+      access_active: accessActive,
       notes: notes.trim() || null,
     };
 
@@ -62,6 +68,8 @@ export function TeamMemberDialog({
         setName("");
         setCurrency("IDR");
         setActive(true);
+        setAccessEmail("");
+        setAccessActive(true);
         setNotes("");
       }
       setOpen(false);
@@ -113,6 +121,28 @@ export function TeamMemberDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Team access email</Label>
+            <Input
+              value={accessEmail}
+              onChange={(event) => setAccessEmail(event.target.value)}
+              placeholder="kevin@example.com"
+              type="email"
+            />
+            <p className="text-xs text-muted-foreground">This email can sign in to the Team access portal.</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Team access</Label>
+            <Select value={accessActive ? "active" : "inactive"} onValueChange={(value) => setAccessActive(value !== "inactive")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-2">
             <Label>Notes</Label>

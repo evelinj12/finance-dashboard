@@ -17,9 +17,16 @@ import { TeamWorkDialog } from "./team-work-dialog";
 import { TeamWorkQuickForm } from "./team-work-quick-form";
 
 const statusLabels = {
+  need_approval: "Need approval",
   owed: "Owed",
   paid: "Paid",
 };
+
+const statusBadgeVariant = {
+  need_approval: "outline",
+  owed: "destructive",
+  paid: "secondary",
+} as const;
 
 interface RelatedName {
   name: string;
@@ -75,6 +82,7 @@ export default async function TeamPage({
     { data: sources, error: sourcesError },
     { data: entries, error: entriesError },
     { data: incomeTx, error: incomeTxError },
+    { data: accessRows, error: accessRowsError },
   ] = await Promise.all([
     supabase.from("team_members").select("id, name, active, default_currency, notes").order("name"),
     supabase
@@ -96,14 +104,25 @@ export default async function TeamPage({
       .select("id, income_source_id, amount_idr, total_hours, income_source:income_sources(name, type)")
       .gte("date", start)
       .lt("date", end),
+    supabase.from("team_member_access").select("team_member_id, email, active, user_id"),
   ]);
 
   if (membersError) throw new Error(`Failed to load team members: ${membersError.message}`);
   if (sourcesError) throw new Error(`Failed to load freelance client sources: ${sourcesError.message}`);
   if (entriesError) throw new Error(`Failed to load team work entries: ${entriesError.message}`);
   if (incomeTxError) throw new Error(`Failed to load client income transactions: ${incomeTxError.message}`);
+  if (accessRowsError) throw new Error(`Failed to load team access: ${accessRowsError.message}`);
 
-  const memberList = members ?? [];
+  const accessByMemberId = new Map((accessRows ?? []).map((access) => [access.team_member_id, access]));
+  const memberList = (members ?? []).map((member) => {
+    const access = accessByMemberId.get(member.id);
+    return {
+      ...member,
+      access_email: access?.email ?? null,
+      access_active: access?.active ?? false,
+      access_linked: Boolean(access?.user_id),
+    };
+  });
   const sourceList = sources ?? [];
   const teamEntries = entries ?? [];
   const transferGroupIds = Array.from(
@@ -130,6 +149,7 @@ export default async function TeamPage({
   const owedTotal = teamEntries
     .filter((entry) => entry.status === "owed")
     .reduce((sum, entry) => sum + entry.amount_idr, 0);
+  const needsApprovalCount = teamEntries.filter((entry) => entry.status === "need_approval").length;
   const paidTotal = teamEntries
     .filter((entry) => entry.status === "paid")
     .reduce((sum, entry) => sum + entry.amount_idr, 0);
@@ -248,7 +268,15 @@ export default async function TeamPage({
 
       <TeamWorkQuickForm key={month} members={memberList} sources={sourceList} selectedMonth={month} />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Need approval</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold">{needsApprovalCount}</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Owed</CardTitle>
@@ -352,8 +380,9 @@ export default async function TeamPage({
                 <TableHead>Name</TableHead>
                 <TableHead>Default currency</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Access email</TableHead>
                 <TableHead>Notes</TableHead>
-                <TableHead className="w-44" />
+                <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -365,6 +394,18 @@ export default async function TeamPage({
                     <Badge variant={member.active ? "secondary" : "outline"}>
                       {member.active ? "Active" : "Inactive"}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {member.access_email ? (
+                      <div className="flex flex-col gap-1">
+                        <span>{member.access_email}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {member.access_active ? (member.access_linked ? "Linked" : "Invite pending") : "Access inactive"}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{member.notes ?? "-"}</TableCell>
                   <TableCell>
@@ -384,7 +425,7 @@ export default async function TeamPage({
               ))}
               {memberList.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No team members yet.
                   </TableCell>
                 </TableRow>
@@ -436,7 +477,7 @@ export default async function TeamPage({
                     <DurationDisplay hours={entry.hours} />
                   </TableCell>
                   <TableCell>
-                    <Badge variant={entry.status === "owed" ? "destructive" : "secondary"}>
+                    <Badge variant={statusBadgeVariant[entry.status]}>
                       {statusLabels[entry.status]}
                     </Badge>
                   </TableCell>

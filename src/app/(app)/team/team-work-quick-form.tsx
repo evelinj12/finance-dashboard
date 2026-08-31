@@ -46,7 +46,7 @@ export function TeamWorkQuickForm({
   const [workPeriod, setWorkPeriod] = useState("");
   const [hours, setHours] = useState("");
   const [money, setMoney] = useState<MoneyValue>(emptyMoneyValue(activeMembers[0]?.default_currency ?? "IDR"));
-  const [status, setStatus] = useState<TeamWorkStatus>("owed");
+  const [status, setStatus] = useState<"owed" | "paid">("owed");
   const [paidAt, setPaidAt] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -204,7 +204,7 @@ export function TeamWorkQuickForm({
           <MoneyInput value={money} onChange={setMoney} />
           <div className="flex flex-col gap-2">
             <Label>Status</Label>
-            <Select value={status} onValueChange={(value) => setStatus(value === "paid" ? "paid" : "owed")}>
+              <Select value={status} onValueChange={(value) => setStatus(value === "paid" ? "paid" : "owed")}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

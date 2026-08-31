@@ -31,8 +31,21 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
+  const isTeamAccessRoute = request.nextUrl.pathname.startsWith("/team-access");
+  const isTeamAccessLoginPage = request.nextUrl.pathname.startsWith("/team-access/login");
+  const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
 
-  if (!user && !isLoginPage) {
+  if (isAuthCallback) {
+    return supabaseResponse;
+  }
+
+  if (!user && isTeamAccessRoute && !isTeamAccessLoginPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/team-access/login";
+    return NextResponse.redirect(url);
+  }
+
+  if (!user && !isLoginPage && !isTeamAccessLoginPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

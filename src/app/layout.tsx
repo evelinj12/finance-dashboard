@@ -4,7 +4,7 @@ import { CurrencyProvider } from "@/components/currency-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: "Finance Dashboard",
+  title: "Duiteve",
   description: "Private budget, income, and net worth dashboard.",
 };
 

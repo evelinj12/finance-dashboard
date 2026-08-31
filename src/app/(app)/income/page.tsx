@@ -47,16 +47,23 @@ type IncomePageTeamEntry = IncomeSummaryTeamEntry & {
   amount: number;
   currency: string;
   fx_rate: number;
-  status: "owed" | "paid";
+  status: "need_approval" | "owed" | "paid";
   paid_at: string | null;
   notes: string | null;
   team_member: RelatedName | RelatedName[] | null;
 };
 
 const teamStatusLabels = {
+  need_approval: "Need approval",
   owed: "Owed",
   paid: "Paid",
 };
+
+const teamStatusBadgeVariant = {
+  need_approval: "outline",
+  owed: "destructive",
+  paid: "secondary",
+} as const;
 
 function relatedName(value: RelatedName | RelatedName[] | null): string {
   if (Array.isArray(value)) return value[0]?.name ?? "-";
@@ -380,7 +387,7 @@ export default async function IncomePage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Team deductions included in this summary</CardTitle>
+          <CardTitle>Team work and deductions</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -409,7 +416,7 @@ export default async function IncomePage({
                     <DurationDisplay hours={entry.hours} />
                   </TableCell>
                   <TableCell>
-                    <Badge variant={entry.status === "owed" ? "destructive" : "secondary"}>
+                    <Badge variant={teamStatusBadgeVariant[entry.status]}>
                       {teamStatusLabels[entry.status]}
                     </Badge>
                   </TableCell>

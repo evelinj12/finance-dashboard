@@ -19,7 +19,7 @@ export type RecurringTransactionType = "sinking_fund" | "fixed_transaction";
 export type IncomeSourceType = "freelance_client" | "digital_product" | "other";
 export type IncomePaymentStatus = "waiting" | "paid";
 export type ContractorPaymentStatus = "owed" | "paid" | "transferred" | "unknown";
-export type TeamWorkStatus = "owed" | "paid";
+export type TeamWorkStatus = "need_approval" | "owed" | "paid";
 export type TeamTransferStatus = "not_transferred" | "transferred";
 export type FamilySupportDirection = "add" | "deduct";
 export type FamilyTransferStatus = "not_transferred" | "transferred";
@@ -270,6 +270,32 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["team_members"]["Row"]>;
         Relationships: [];
+      };
+      team_member_access: {
+        Row: {
+          id: string;
+          team_member_id: string;
+          user_id: string | null;
+          email: string | null;
+          active: boolean;
+          notes: string | null;
+          invited_at: string;
+          last_seen_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["team_member_access"]["Row"]> & {
+          team_member_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["team_member_access"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "team_member_access_team_member_id_fkey";
+            columns: ["team_member_id"];
+            isOneToOne: true;
+            referencedRelation: "team_members";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       team_work_entries: {
         Row: {

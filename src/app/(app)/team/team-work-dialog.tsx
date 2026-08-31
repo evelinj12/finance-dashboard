@@ -50,7 +50,12 @@ interface ExistingTeamWorkEntry {
   notes: string | null;
 }
 
-const statusOptions: TeamWorkStatus[] = ["owed", "paid"];
+const statusOptions: TeamWorkStatus[] = ["need_approval", "owed", "paid"];
+const statusLabels: Record<TeamWorkStatus, string> = {
+  need_approval: "Need approval",
+  owed: "Owed",
+  paid: "Paid",
+};
 
 export function TeamWorkDialog({
   members,
@@ -232,14 +237,14 @@ export function TeamWorkDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label>Status</Label>
-              <Select value={status} onValueChange={(value) => setStatus(value === "paid" ? "paid" : "owed")}>
+              <Select value={status} onValueChange={(value) => setStatus(statusOptions.includes(value as TeamWorkStatus) ? (value as TeamWorkStatus) : "owed")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {statusOptions.map((option) => (
                     <SelectItem key={option} value={option}>
-                      {option}
+                      {statusLabels[option]}
                     </SelectItem>
                   ))}
                 </SelectContent>

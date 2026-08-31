@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { monthRange } from "@/lib/dates";
 import type { TeamTransferStatus, TeamWorkStatus } from "@/lib/supabase/types";
 
-const teamWorkStatuses = ["owed", "paid"] as const;
+const teamWorkStatuses = ["need_approval", "owed", "paid"] as const;
 const teamTransferStatuses = ["not_transferred", "transferred"] as const;
 const teamRevalidatePaths = ["/team", "/income", "/transactions", "/budget", "/saving-health", "/"];
 const monthPattern = /^\d{4}-\d{2}-01$/;
@@ -45,6 +45,8 @@ export interface TeamMemberInput {
   default_currency: string;
   notes: string | null;
   active: boolean;
+  access_email: string | null;
+  access_active: boolean;
 }
 
 export interface TeamTransferInput {
@@ -64,7 +66,7 @@ function validateTeamWorkEntry(input: TeamWorkEntryInput) {
   if (!input.date) {
     throw new Error("Date is required");
   }
-  if (!Number.isFinite(input.amount) || input.amount === 0) {
+  if (!Number.isFinite(input.amount) || (input.status !== "need_approval" && input.amount === 0)) {
     throw new Error("Amount cannot be zero");
   }
   if (!Number.isFinite(input.fx_rate) || input.fx_rate <= 0) {
@@ -81,7 +83,7 @@ function validateTeamWorkEntry(input: TeamWorkEntryInput) {
 function normalizeTeamWorkEntry(input: TeamWorkEntryInput) {
   validateTeamWorkEntry(input);
   const amountIdr = Math.round(input.amount * input.fx_rate);
-  if (!Number.isFinite(amountIdr) || amountIdr === 0) {
+  if (!Number.isFinite(amountIdr) || (input.status !== "need_approval" && amountIdr === 0)) {
     throw new Error("Amount in IDR cannot be zero");
   }
 
@@ -92,6 +94,7 @@ function normalizeTeamWorkEntry(input: TeamWorkEntryInput) {
     currency: input.currency.trim() || "IDR",
     amount_idr: amountIdr,
     paid_at: input.status === "paid" ? input.paid_at : null,
+    transfer_group_id: input.status === "paid" ? undefined : null,
     notes: input.notes?.trim() || null,
   };
 }
@@ -108,6 +111,46 @@ function normalizeTeamMember(input: TeamMemberInput) {
     default_currency: input.default_currency.trim() || "IDR",
     notes: input.notes?.trim() || null,
   };
+}
+
+function normalizeAccessEmail(email: string | null | undefined) {
+  const trimmed = email?.trim().toLowerCase() ?? "";
+  return trimmed || null;
+}
+
+async function upsertTeamMemberAccess(supabase: SupabaseServerClient, teamMemberId: string, input: TeamMemberInput) {
+  const email = normalizeAccessEmail(input.access_email);
+  const { data: existing, error: existingError } = await supabase
+    .from("team_member_access")
+    .select("id, user_id")
+    .eq("team_member_id", teamMemberId)
+    .maybeSingle();
+
+  if (existingError) throw new Error(existingError.message);
+
+  if (!email) {
+    if (existing) {
+      const { error } = await supabase
+        .from("team_member_access")
+        .update({ email: null, active: false, notes: "Team access disabled from dashboard." })
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+    }
+    return;
+  }
+
+  const payload = {
+    team_member_id: teamMemberId,
+    email,
+    active: input.access_active,
+    notes: null,
+  };
+
+  const { error } = existing
+    ? await supabase.from("team_member_access").update(payload).eq("id", existing.id)
+    : await supabase.from("team_member_access").insert(payload);
+
+  if (error) throw new Error(error.message);
 }
 
 function normalizeTeamTransfer(input: TeamTransferInput) {
@@ -426,8 +469,9 @@ export async function saveTeamTransferStatus(input: TeamTransferInput) {
 
 export async function addTeamMember(input: TeamMemberInput) {
   const supabase = await createClient();
-  const { error } = await supabase.from("team_members").insert(normalizeTeamMember(input));
+  const { data, error } = await supabase.from("team_members").insert(normalizeTeamMember(input)).select("id").single();
   if (error) throw new Error(error.message);
+  await upsertTeamMemberAccess(supabase, data.id, input);
   revalidateTeamPaths();
 }
 
@@ -435,6 +479,7 @@ export async function updateTeamMember(id: string, input: TeamMemberInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("team_members").update(normalizeTeamMember(input)).eq("id", id);
   if (error) throw new Error(error.message);
+  await upsertTeamMemberAccess(supabase, id, input);
   revalidateTeamPaths();
 }
 
