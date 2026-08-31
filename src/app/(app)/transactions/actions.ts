@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { buildChecklistCarryoverItems } from "@/lib/checklist-carryover";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
+import { shouldPrepareMonth } from "@/lib/monthly-prep";
 import type { RecurringTransactionType, TransactionSource } from "@/lib/supabase/types";
 
 export interface TransactionInput {
@@ -248,7 +249,7 @@ export async function deleteChecklistItem(id: string) {
 }
 
 export async function ensureMonthlyRecurringTransactions(month: string) {
-  if (!/^\d{4}-\d{2}-01$/.test(month) || month !== monthStart()) {
+  if (!shouldPrepareMonth(month, monthStart())) {
     return { created: 0 };
   }
 
@@ -374,7 +375,7 @@ export async function ensureMonthlyRecurringTransactions(month: string) {
 }
 
 export async function ensureMonthlyChecklistItems(month: string) {
-  if (!/^\d{4}-\d{2}-01$/.test(month) || month !== monthStart()) {
+  if (!shouldPrepareMonth(month, monthStart())) {
     return { created: 0 };
   }
 
