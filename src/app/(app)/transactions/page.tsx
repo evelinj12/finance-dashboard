@@ -18,7 +18,7 @@ import {
   type ChecklistStatusFilter,
 } from "./transaction-checklist";
 import { DeleteTransactionButton } from "./delete-transaction-button";
-import { ensureMonthlyRecurringTransactions } from "./actions";
+import { ensureMonthlyChecklistItems, ensureMonthlyRecurringTransactions } from "./actions";
 import { ensurePaidIncomeTransactions } from "../income/actions";
 
 function previousDay(dateStr: string): string {
@@ -180,6 +180,7 @@ export default async function TransactionsPage({
       : `Showing transactions from ${start} to ${end}`;
 
   await ensureMonthlyRecurringTransactions(month);
+  await ensureMonthlyChecklistItems(month);
   await ensurePaidIncomeTransactions(month);
 
   const supabase = await createClient();

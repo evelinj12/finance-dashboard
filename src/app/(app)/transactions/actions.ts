@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { buildChecklistCarryoverItems } from "@/lib/checklist-carryover";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
 import type { RecurringTransactionType, TransactionSource } from "@/lib/supabase/types";
@@ -263,12 +264,12 @@ export async function ensureMonthlyRecurringTransactions(month: string) {
       .from("sinking_funds")
       .select("id, category_id, name, monthly_amount, notes")
       .not("category_id", "is", null)
-      .gt("monthly_amount", 0),
+      .gte("monthly_amount", 0),
     supabase
       .from("fixed_transactions")
       .select("id, category_id, name, monthly_amount, due_day, notes")
       .eq("active", true)
-      .gt("monthly_amount", 0),
+      .gte("monthly_amount", 0),
     supabase
       .from("transactions")
       .select("category_id, amount_idr, source, recurring_type, recurring_template_id")
@@ -367,6 +368,47 @@ export async function ensureMonthlyRecurringTransactions(month: string) {
   }
 
   const { error } = await supabase.from("transactions").insert(inserts);
+  if (error) throw new Error(error.message);
+
+  return { created: inserts.length };
+}
+
+export async function ensureMonthlyChecklistItems(month: string) {
+  if (!/^\d{4}-\d{2}-01$/.test(month) || month !== monthStart()) {
+    return { created: 0 };
+  }
+
+  const supabase = await createClient();
+  const { count: currentCount, error: currentError } = await supabase
+    .from("transaction_checklist_items")
+    .select("id", { count: "exact", head: true })
+    .eq("month", month);
+
+  if (currentError) throw new Error(currentError.message);
+  if ((currentCount ?? 0) > 0) return { created: 0 };
+
+  const { data: previousMonthRow, error: previousMonthError } = await supabase
+    .from("transaction_checklist_items")
+    .select("month")
+    .lt("month", month)
+    .order("month", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (previousMonthError) throw new Error(previousMonthError.message);
+  if (!previousMonthRow?.month) return { created: 0 };
+
+  const { data: previousItems, error: previousItemsError } = await supabase
+    .from("transaction_checklist_items")
+    .select("title, latest_date_note, sort_order")
+    .eq("month", previousMonthRow.month)
+    .order("sort_order");
+
+  if (previousItemsError) throw new Error(previousItemsError.message);
+  const inserts = buildChecklistCarryoverItems(month, previousItems ?? []);
+  if (inserts.length === 0) return { created: 0 };
+
+  const { error } = await supabase.from("transaction_checklist_items").insert(inserts);
   if (error) throw new Error(error.message);
 
   return { created: inserts.length };
