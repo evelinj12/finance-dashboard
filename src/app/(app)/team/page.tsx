@@ -10,23 +10,10 @@ import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
 import { calculateClientNet } from "@/lib/finance/team-net";
 import { DeleteTeamMemberButton } from "./delete-team-member-button";
-import { DeleteTeamWorkButton } from "./delete-team-work-button";
 import { TeamMemberDialog } from "./team-member-dialog";
 import { TeamTransferStatusForm, type TeamTransferPerson } from "./team-transfer-status-form";
-import { TeamWorkDialog } from "./team-work-dialog";
+import { TeamWorkEntriesTable } from "./team-work-entries-table";
 import { TeamWorkQuickForm } from "./team-work-quick-form";
-
-const statusLabels = {
-  need_approval: "Need approval",
-  owed: "Owed",
-  paid: "Paid",
-};
-
-const statusBadgeVariant = {
-  need_approval: "outline",
-  owed: "destructive",
-  paid: "secondary",
-} as const;
 
 interface RelatedName {
   name: string;
@@ -41,30 +28,6 @@ function relatedName(value: RelatedName | RelatedName[] | null): string {
 function relatedType(value: RelatedName | RelatedName[] | null): string | undefined {
   if (Array.isArray(value)) return value[0]?.type;
   return value?.type;
-}
-
-function entrySourceOption(
-  entry: {
-    income_source_id: string | null;
-    income_source: RelatedName | RelatedName[] | null;
-  },
-  sources: { id: string; name: string; type: string }[]
-) {
-  if (!entry.income_source_id || sources.some((source) => source.id === entry.income_source_id)) {
-    return sources;
-  }
-
-  const source = entry.income_source as RelatedName | RelatedName[] | null;
-  if (relatedType(source) !== "freelance_client") return sources;
-
-  return [
-    ...sources,
-    {
-      id: entry.income_source_id,
-      name: relatedName(source),
-      type: "freelance_client",
-    },
-  ];
 }
 
 export default async function TeamPage({
@@ -435,91 +398,7 @@ export default async function TeamPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Team work entries</CardTitle>
-          <TeamWorkDialog
-            members={memberList}
-            sources={sourceList}
-            trigger={
-              <Button size="sm">
-                <Plus className="size-4" /> Entry
-              </Button>
-            }
-          />
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Member</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Work period</TableHead>
-                <TableHead className="text-right">Hours</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Paid at</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="sticky right-0 z-10 w-24 bg-sky-50/95 text-right shadow-[-10px_0_16px_-16px_rgba(15,47,85,0.45)]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {teamEntries.map((entry) => (
-                <TableRow key={entry.id}>
-                  <TableCell className="whitespace-nowrap">{entry.date}</TableCell>
-                  <TableCell>{relatedName(entry.team_member as RelatedName | RelatedName[] | null)}</TableCell>
-                  <TableCell>{relatedName(entry.income_source as RelatedName | RelatedName[] | null)}</TableCell>
-                  <TableCell className="text-muted-foreground">{entry.description ?? "-"}</TableCell>
-                  <TableCell className="text-muted-foreground">{entry.work_period ?? "-"}</TableCell>
-                  <TableCell className="text-right">
-                    <DurationDisplay hours={entry.hours} />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusBadgeVariant[entry.status]}>
-                      {statusLabels[entry.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Money amountIdr={entry.amount_idr} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">{entry.paid_at ?? "-"}</TableCell>
-                  <TableCell className="text-muted-foreground">{entry.notes ?? "-"}</TableCell>
-                  <TableCell className="sticky right-0 z-10 bg-white/95 shadow-[-10px_0_16px_-16px_rgba(15,47,85,0.45)]">
-                    <div className="flex items-center justify-end gap-1">
-                      <TeamWorkDialog
-                        members={memberList}
-                        sources={entrySourceOption(
-                          entry as {
-                            income_source_id: string | null;
-                            income_source: RelatedName | RelatedName[] | null;
-                          },
-                          sourceList
-                        )}
-                        entry={entry}
-                        trigger={
-                          <Button variant="ghost" size="icon-sm" aria-label="Edit team work entry">
-                            <Pencil className="size-4" />
-                          </Button>
-                        }
-                      />
-                      <DeleteTeamWorkButton id={entry.id} />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {teamEntries.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
-                    No team work logged this month yet.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <TeamWorkEntriesTable entries={teamEntries} members={memberList} sources={sourceList} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Clock, LogOut, Send, Settings } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,22 +27,35 @@ const statusBadgeClasses = {
 };
 
 type RelatedName = { name: string } | { name: string }[] | null;
+type TeamAccessView = "submit" | "history" | "settings";
 
 function relatedName(value: RelatedName) {
   if (Array.isArray(value)) return value[0]?.name ?? "-";
   return value?.name ?? "-";
 }
 
+function normalizeView(value: string | undefined): TeamAccessView {
+  if (value === "history" || value === "settings") return value;
+  return "submit";
+}
+
+function navClass(active: boolean) {
+  return `flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium ${
+    active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-sky-50 hover:text-foreground"
+  }`;
+}
+
 export default async function TeamAccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; message?: string }>;
+  searchParams: Promise<{ error?: string; message?: string; view?: string }>;
 }) {
-  const { error, message } = await searchParams;
+  const { error, message, view } = await searchParams;
+  const activeView = normalizeView(view);
   const supabase = await createClient();
   const profile = await getTeamAccessProfile(supabase);
 
-  if (!profile) redirect("/team-access/login");
+  if (!profile) redirect("/team-login");
   if (!profile.active || !profile.team_member?.active) {
     return (
       <main className="flex min-h-svh items-center justify-center bg-sky-50 p-4">
@@ -103,110 +117,139 @@ export default async function TeamAccessPage({
           </form>
         </header>
 
-        <Card className="border-sky-100 bg-white/90 shadow-xl shadow-sky-950/10">
-          <CardHeader>
-            <CardTitle>Submit work</CardTitle>
-            <CardDescription>{profile.team_member.name}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action={submitTeamAccessWork} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Submission date</Label>
-                <Input id="date" name="date" type="date" defaultValue={todayStr()} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Client</Label>
-                <Select name="income_source_id">
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientOptions.map((source) => (
-                      <SelectItem key={source.id} value={source.id}>
-                        {source.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hours">Time worked</Label>
-                <Input id="hours" name="hours" placeholder="110m, 1:50, 1h 50m, or 1.83" required />
-                <p className="text-xs text-muted-foreground">Minutes, decimal hours, or hh:mm:ss.</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input id="description" name="description" placeholder="Optional note" />
-              </div>
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
-              {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
-              <Button type="submit" className="h-12 w-full">
-                <Send className="size-4" />
-                Submit for approval
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card className="border-sky-100 bg-white/90">
-          <CardHeader>
-            <CardTitle>Submission history</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {sections.map((section) => {
-              const rows = history.filter((entry) => section.statuses.includes(entry.status));
-              return (
-                <section key={section.title} className="space-y-2">
-                  <h2 className="font-semibold">{section.title}</h2>
-                  {rows.length > 0 ? (
-                    <div className="space-y-2">
-                      {rows.map((entry) => (
-                        <div key={entry.id} className="rounded-lg border border-sky-100 bg-white px-3 py-3 shadow-sm shadow-sky-950/5">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold">{relatedName(entry.income_source as RelatedName)}</p>
-                              <p className="text-sm text-muted-foreground">{entry.date}</p>
-                            </div>
-                            <Badge className={statusBadgeClasses[entry.status]}>
-                              {statusLabels[entry.status]}
-                            </Badge>
-                          </div>
-                          <div className="mt-3 flex items-end justify-between gap-3">
-                            <DurationDisplay hours={entry.hours} align="left" />
-                            {entry.status === "need_approval" ? (
-                              <span className="text-sm text-muted-foreground">Amount pending</span>
-                            ) : (
-                              <Money amountIdr={entry.amount_idr} className="font-semibold" />
-                            )}
-                          </div>
-                          {entry.description ? <p className="mt-2 text-sm text-muted-foreground">{entry.description}</p> : null}
-                        </div>
+        {activeView === "submit" ? (
+          <Card className="border-sky-100 bg-white/90 shadow-xl shadow-sky-950/10">
+            <CardHeader>
+              <CardTitle>Submit work</CardTitle>
+              <CardDescription>{profile.team_member.name}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form action={submitTeamAccessWork} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="date">Submission date</Label>
+                  <Input id="date" name="date" type="date" defaultValue={todayStr()} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Client</Label>
+                  <Select name="income_source_id">
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clientOptions.map((source) => (
+                        <SelectItem key={source.id} value={source.id}>
+                          {source.name}
+                        </SelectItem>
                       ))}
-                    </div>
-                  ) : (
-                    <p className="rounded-lg border border-dashed border-sky-100 bg-sky-50/50 p-3 text-sm text-muted-foreground">
-                      Nothing here yet.
-                    </p>
-                  )}
-                </section>
-              );
-            })}
-          </CardContent>
-        </Card>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hours">Time worked</Label>
+                  <Input id="hours" name="hours" placeholder="110m, 1:50, 1h 50m, or 1.83" required />
+                  <p className="text-xs text-muted-foreground">Minutes, decimal hours, or hh:mm:ss.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Input id="description" name="description" placeholder="Optional note" />
+                </div>
+                {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+                <Button type="submit" className="h-12 w-full">
+                  <Send className="size-4" />
+                  Submit for approval
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {activeView === "history" ? (
+          <Card className="border-sky-100 bg-white/90">
+            <CardHeader>
+              <CardTitle>Submission history</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {sections.map((section) => {
+                const rows = history.filter((entry) => section.statuses.includes(entry.status));
+                return (
+                  <section key={section.title} className="space-y-2">
+                    <h2 className="font-semibold">{section.title}</h2>
+                    {rows.length > 0 ? (
+                      <div className="space-y-2">
+                        {rows.map((entry) => (
+                          <div key={entry.id} className="rounded-lg border border-sky-100 bg-white px-3 py-3 shadow-sm shadow-sky-950/5">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold">{relatedName(entry.income_source as RelatedName)}</p>
+                                <p className="text-sm text-muted-foreground">{entry.date}</p>
+                              </div>
+                              <Badge className={statusBadgeClasses[entry.status]}>
+                                {statusLabels[entry.status]}
+                              </Badge>
+                            </div>
+                            <div className="mt-3 flex items-end justify-between gap-3">
+                              <DurationDisplay hours={entry.hours} align="left" />
+                              {entry.status === "need_approval" ? (
+                                <span className="text-sm text-muted-foreground">Amount pending</span>
+                              ) : (
+                                <Money amountIdr={entry.amount_idr} className="font-semibold" />
+                              )}
+                            </div>
+                            {entry.description ? <p className="mt-2 text-sm text-muted-foreground">{entry.description}</p> : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-lg border border-dashed border-sky-100 bg-sky-50/50 p-3 text-sm text-muted-foreground">
+                        Nothing here yet.
+                      </p>
+                    )}
+                  </section>
+                );
+              })}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {activeView === "settings" ? (
+          <Card className="border-sky-100 bg-white/90">
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+              <CardDescription>This account is for submitting time. Evelin manages clients, amounts, and approvals.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team member</p>
+                <p className="font-semibold">{profile.team_member.name}</p>
+              </div>
+              <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Login email</p>
+                <p className="break-all font-semibold">{profile.email ?? "-"}</p>
+              </div>
+              <form action={signOutTeamAccess}>
+                <Button type="submit" variant="outline" className="w-full">
+                  <LogOut className="size-4" />
+                  Sign out
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <nav className="sticky bottom-3 mt-auto grid grid-cols-3 rounded-xl border border-sky-100 bg-white/90 p-1 shadow-xl shadow-sky-950/10 backdrop-blur">
-          <a href="#date" className="flex flex-col items-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
+          <Link href="/team-access" className={navClass(activeView === "submit")}>
             <Send className="size-4" />
             Submit
-          </a>
-          <a href="#" className="flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground">
+          </Link>
+          <Link href="/team-access?view=history" className={navClass(activeView === "history")}>
             <Clock className="size-4" />
             History
-          </a>
-          <a href="#" className="flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground">
+          </Link>
+          <Link href="/team-access?view=settings" className={navClass(activeView === "settings")}>
             <Settings className="size-4" />
             Settings
-          </a>
+          </Link>
         </nav>
       </div>
     </main>

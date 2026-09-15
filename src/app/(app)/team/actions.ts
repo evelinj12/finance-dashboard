@@ -310,6 +310,34 @@ export async function updateTeamWorkEntry(id: string, input: TeamWorkEntryInput)
   revalidateTeamPaths();
 }
 
+export async function bulkApproveTeamWorkEntries(ids: string[]) {
+  const entryIds = Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+  if (entryIds.length === 0) {
+    throw new Error("Choose at least one Team work entry to approve.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("team_work_entries")
+    .update({
+      status: "owed",
+      paid_at: null,
+      transfer_group_id: null,
+    })
+    .in("id", entryIds)
+    .eq("status", "need_approval")
+    .select("id");
+
+  if (error) throw new Error(error.message);
+
+  if ((data ?? []).length === 0) {
+    throw new Error("No selected entries were waiting for approval.");
+  }
+
+  revalidateTeamPaths();
+  return { approvedCount: data?.length ?? 0 };
+}
+
 export async function deleteTeamWorkEntry(id: string) {
   const supabase = await createClient();
   const { data: current, error: currentError } = await supabase
