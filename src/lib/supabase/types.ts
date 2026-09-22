@@ -447,6 +447,8 @@ export interface Database {
           notes: string | null;
           source_sheet: string | null;
           source_row: string | null;
+          routine_entry_id: string | null;
+          generated_month: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -459,6 +461,46 @@ export interface Database {
           amount_idr: number;
         };
         Update: Partial<Database["public"]["Tables"]["family_support_entries"]["Row"]>;
+        Relationships: [];
+      };
+      family_routine_entries: {
+        Row: {
+          id: string;
+          person: string;
+          direction: FamilySupportDirection;
+          description: string;
+          monthly_amount: number;
+          currency: string;
+          fx_rate: number;
+          amount_idr: number;
+          entry_day: number;
+          active: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["family_routine_entries"]["Row"]> & {
+          person: string;
+          direction: FamilySupportDirection;
+          description: string;
+          monthly_amount: number;
+          amount_idr: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["family_routine_entries"]["Row"]>;
+        Relationships: [];
+      };
+      family_routine_entry_skips: {
+        Row: {
+          id: string;
+          routine_entry_id: string;
+          month: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["family_routine_entry_skips"]["Row"]> & {
+          routine_entry_id: string;
+          month: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["family_routine_entry_skips"]["Row"]>;
         Relationships: [];
       };
       family_support_transfers: {

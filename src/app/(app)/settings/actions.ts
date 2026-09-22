@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { CategoryTag, IncomeSourceType } from "@/lib/supabase/types";
+import type { CategoryTag, FamilySupportDirection, IncomeSourceType } from "@/lib/supabase/types";
 
 const defaultNavOrder = [
   "overview",
@@ -244,6 +244,88 @@ export async function deleteFixedTransaction(id: string) {
   revalidatePath("/transactions");
   revalidatePath("/budget");
   revalidatePath("/");
+}
+
+export interface FamilyRoutineEntryInput {
+  person: string;
+  direction: FamilySupportDirection;
+  description: string;
+  monthly_amount: number;
+  currency: string;
+  fx_rate: number;
+  amount_idr: number;
+  entry_day: number;
+  active: boolean;
+  notes: string | null;
+}
+
+function normalizeFamilyRoutineEntryInput(input: FamilyRoutineEntryInput) {
+  const person = input.person.trim();
+  const description = input.description.trim();
+  const monthlyAmount = Number(input.monthly_amount);
+  const fxRate = input.currency === "IDR" ? 1 : Number(input.fx_rate);
+  const amountIdr = Math.round(monthlyAmount * fxRate);
+  const entryDay = Number(input.entry_day);
+
+  if (!person) throw new Error("Person is required");
+  if (input.direction !== "add" && input.direction !== "deduct") throw new Error("Choose Tambah or Potong");
+  if (!description) throw new Error("Description is required");
+  if (!Number.isFinite(monthlyAmount) || monthlyAmount <= 0) {
+    throw new Error("Monthly amount must be greater than zero");
+  }
+  if (!Number.isFinite(fxRate) || fxRate <= 0) {
+    throw new Error("FX rate must be greater than zero");
+  }
+  if (!Number.isFinite(amountIdr) || amountIdr <= 0) {
+    throw new Error("Amount in IDR must be greater than zero");
+  }
+  if (!Number.isInteger(entryDay) || entryDay < 1 || entryDay > 31) {
+    throw new Error("Entry day must be between 1 and 31");
+  }
+
+  return {
+    person,
+    direction: input.direction,
+    description,
+    monthly_amount: monthlyAmount,
+    currency: input.currency.trim() || "IDR",
+    fx_rate: fxRate,
+    amount_idr: amountIdr,
+    entry_day: entryDay,
+    active: input.active,
+    notes: input.notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function revalidateFamilyRoutinePaths() {
+  revalidatePath("/settings");
+  revalidatePath("/family");
+  revalidatePath("/exports");
+}
+
+export async function addFamilyRoutineEntry(input: FamilyRoutineEntryInput) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("family_routine_entries").insert(normalizeFamilyRoutineEntryInput(input));
+  if (error) throw new Error(error.message);
+  revalidateFamilyRoutinePaths();
+}
+
+export async function updateFamilyRoutineEntry(id: string, input: FamilyRoutineEntryInput) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("family_routine_entries")
+    .update(normalizeFamilyRoutineEntryInput(input))
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateFamilyRoutinePaths();
+}
+
+export async function deleteFamilyRoutineEntry(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("family_routine_entries").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateFamilyRoutinePaths();
 }
 
 export async function setNetWorthGoal(year: number, targetAmount: number) {

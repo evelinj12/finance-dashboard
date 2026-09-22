@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatMonthLabel, monthStart } from "@/lib/dates";
 import type { FamilySupportDirection, FamilyTransferStatus } from "@/lib/supabase/types";
 import { DeleteFamilyEntryButton } from "./delete-family-entry-button";
+import { ensureMonthlyFamilyRoutineEntries } from "./actions";
 import { FamilyEntryDialog } from "./family-entry-dialog";
 import { FamilyEntryForm } from "./family-entry-form";
 import { FamilyTransferForm } from "./family-transfer-form";
@@ -27,6 +28,8 @@ interface FamilyEntry {
   notes: string | null;
   source_sheet: string | null;
   source_row: string | null;
+  routine_entry_id: string | null;
+  generated_month: string | null;
   created_at: string;
 }
 
@@ -55,12 +58,13 @@ export default async function FamilyPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam ?? monthStart();
   const supabase = await createClient();
+  await ensureMonthlyFamilyRoutineEntries(month);
 
   const [{ data: entries, error: entriesError }, { data: transfers, error: transfersError }] = await Promise.all([
     supabase
       .from("family_support_entries")
       .select(
-        "id, month, entry_date, person, direction, description, amount, currency, fx_rate, amount_idr, notes, source_sheet, source_row, created_at"
+        "id, month, entry_date, person, direction, description, amount, currency, fx_rate, amount_idr, notes, source_sheet, source_row, routine_entry_id, generated_month, created_at"
       )
       .eq("month", month)
       .order("direction", { ascending: true })

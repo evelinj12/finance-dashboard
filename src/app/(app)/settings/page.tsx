@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CategoriesSection } from "./categories-section";
 import { SinkingFundsSection } from "./sinking-funds-section";
 import { FixedTransactionsSection } from "./fixed-transactions-section";
+import { FamilyRoutinesSection } from "./family-routines-section";
 import { IncomeSourcesSection } from "./income-sources-section";
 import { GoalSection } from "./goal-section";
 import { CurrencySection } from "./currency-section";
@@ -15,6 +16,7 @@ const settingsTabs = new Set([
   "income-sources",
   "sinking-funds",
   "fixed-transactions",
+  "family-routines",
   "goals",
   "currency",
   "navigation",
@@ -34,6 +36,7 @@ export default async function SettingsPage({
     { data: categories },
     { data: sinkingFunds },
     { data: fixedTransactions },
+    { data: familyRoutines },
     { data: incomeSources },
     { data: goals },
     navPreferences,
@@ -45,6 +48,13 @@ export default async function SettingsPage({
       .select("id, category_id, name, monthly_amount, due_day, active, notes, category:categories(name)")
       .order("active", { ascending: false })
       .order("name"),
+    supabase
+      .from("family_routine_entries")
+      .select("id, person, direction, description, monthly_amount, currency, fx_rate, amount_idr, entry_day, active, notes")
+      .order("active", { ascending: false })
+      .order("person")
+      .order("direction")
+      .order("description"),
     supabase
       .from("income_sources")
       .select("id, name, type, notes, active, visible_in_active_breakdown")
@@ -69,6 +79,7 @@ export default async function SettingsPage({
           <TabsTrigger value="income-sources">Income Sources</TabsTrigger>
           <TabsTrigger value="sinking-funds">Sinking Funds</TabsTrigger>
           <TabsTrigger value="fixed-transactions">Fixed Transactions</TabsTrigger>
+          <TabsTrigger value="family-routines">Family Routines</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
           <TabsTrigger value="currency">Currency</TabsTrigger>
           <TabsTrigger value="navigation">Navigation</TabsTrigger>
@@ -117,6 +128,17 @@ export default async function SettingsPage({
                 fixedTransactions={fixedTransactions ?? []}
                 categories={(categories ?? []).filter((category) => category.tag === "fixed" && category.active)}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="family-routines">
+          <Card>
+            <CardHeader>
+              <CardTitle>Family routine records</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FamilyRoutinesSection routines={familyRoutines ?? []} />
             </CardContent>
           </Card>
         </TabsContent>

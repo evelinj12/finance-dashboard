@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { monthStart } from "@/lib/dates";
+import { shouldPrepareMonth } from "@/lib/monthly-prep";
 import type { FamilySupportDirection, FamilyTransferStatus } from "@/lib/supabase/types";
 
 export interface FamilySupportEntryInput {
@@ -30,6 +32,15 @@ const monthPattern = /^\d{4}-\d{2}-01$/;
 function revalidateFamilyPaths() {
   revalidatePath("/family");
   revalidatePath("/exports");
+}
+
+function daysInMonth(month: string): number {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Date(year, monthNumber, 0).getDate();
+}
+
+function dateForDay(month: string, day: number): string {
+  return `${month.slice(0, 7)}-${String(Math.min(Math.max(day, 1), daysInMonth(month))).padStart(2, "0")}`;
 }
 
 function normalizeFamilyEntry(input: FamilySupportEntryInput) {
@@ -103,8 +114,28 @@ export async function updateFamilySupportEntry(id: string, input: FamilySupportE
 
 export async function deleteFamilySupportEntry(id: string) {
   const supabase = await createClient();
+  const { data: entry, error: readError } = await supabase
+    .from("family_support_entries")
+    .select("routine_entry_id, generated_month, month")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError) throw new Error(readError.message);
+
   const { error } = await supabase.from("family_support_entries").delete().eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (entry?.routine_entry_id) {
+    const { error: skipError } = await supabase.from("family_routine_entry_skips").upsert(
+      {
+        routine_entry_id: entry.routine_entry_id,
+        month: entry.generated_month ?? entry.month,
+      },
+      { onConflict: "routine_entry_id,month" }
+    );
+    if (skipError) throw new Error(skipError.message);
+  }
+
   revalidateFamilyPaths();
 }
 
@@ -116,4 +147,82 @@ export async function upsertFamilyTransfer(input: FamilyTransferInput) {
     .upsert(transfer, { onConflict: "month,person" });
   if (error) throw new Error(error.message);
   revalidateFamilyPaths();
+}
+
+export async function ensureMonthlyFamilyRoutineEntries(month: string) {
+  if (!shouldPrepareMonth(month, monthStart())) {
+    return { created: 0 };
+  }
+
+  const supabase = await createClient();
+  const [
+    { data: routines, error: routinesError },
+    { data: existingEntries, error: existingError },
+    { data: skips, error: skipsError },
+  ] = await Promise.all([
+    supabase
+      .from("family_routine_entries")
+      .select("id, person, direction, description, monthly_amount, currency, fx_rate, amount_idr, entry_day, notes")
+      .eq("active", true)
+      .gt("amount_idr", 0),
+    supabase
+      .from("family_support_entries")
+      .select("person, direction, description, amount_idr, routine_entry_id")
+      .eq("month", month),
+    supabase
+      .from("family_routine_entry_skips")
+      .select("routine_entry_id")
+      .eq("month", month),
+  ]);
+
+  if (routinesError) throw new Error(routinesError.message);
+  if (existingError) throw new Error(existingError.message);
+  if (skipsError) throw new Error(skipsError.message);
+
+  const existing = existingEntries ?? [];
+  const skippedRoutineIds = new Set((skips ?? []).map((skip) => skip.routine_entry_id));
+
+  const inserts = (routines ?? []).flatMap((routine) => {
+    const amountIdr = Math.round(Number(routine.amount_idr));
+    if (skippedRoutineIds.has(routine.id)) return [];
+    const exists = existing.some((entry) => {
+      if (entry.routine_entry_id) return entry.routine_entry_id === routine.id;
+      return (
+        entry.person.toLowerCase() === routine.person.toLowerCase() &&
+        entry.direction === routine.direction &&
+        entry.description.toLowerCase() === routine.description.toLowerCase() &&
+        Number(entry.amount_idr) === amountIdr
+      );
+    });
+
+    if (exists) return [];
+
+    return [
+      {
+        month,
+        entry_date: dateForDay(month, routine.entry_day),
+        person: routine.person,
+        direction: routine.direction,
+        description: routine.description,
+        amount: Number(routine.monthly_amount),
+        currency: routine.currency,
+        fx_rate: Number(routine.fx_rate),
+        amount_idr: amountIdr,
+        notes: routine.notes,
+        source_sheet: "Auto monthly",
+        source_row: null,
+        routine_entry_id: routine.id,
+        generated_month: month,
+      },
+    ];
+  });
+
+  if (inserts.length === 0) {
+    return { created: 0 };
+  }
+
+  const { error } = await supabase.from("family_support_entries").insert(inserts);
+  if (error) throw new Error(error.message);
+
+  return { created: inserts.length };
 }
