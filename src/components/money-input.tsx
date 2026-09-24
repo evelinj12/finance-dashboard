@@ -3,7 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DEFAULT_USD_IDR_RATE, formatMoney } from "@/lib/currency";
+import { defaultIdrRateForCurrency, formatMoney } from "@/lib/currency";
 
 export interface MoneyValue {
   amount: string;
@@ -14,7 +14,7 @@ export interface MoneyValue {
 export const CURRENCIES = ["IDR", "USD", "AUD"];
 
 export function emptyMoneyValue(currency = "IDR"): MoneyValue {
-  return { amount: "", currency, fxRate: currency === "IDR" ? "1" : String(DEFAULT_USD_IDR_RATE) };
+  return { amount: "", currency, fxRate: String(defaultIdrRateForCurrency(currency)) };
 }
 
 export function moneyValueToIdr(v: MoneyValue): number {
@@ -50,10 +50,13 @@ export function MoneyInput({
           value={value.currency}
           onValueChange={(currency) => {
             if (!currency) return;
+            const currentDefaultRate = String(defaultIdrRateForCurrency(value.currency));
+            const nextDefaultRate = String(defaultIdrRateForCurrency(currency));
             onChange({
               ...value,
               currency,
-              fxRate: currency === "IDR" ? "1" : value.fxRate === "1" ? String(DEFAULT_USD_IDR_RATE) : value.fxRate,
+              fxRate:
+                value.fxRate === "1" || value.fxRate === currentDefaultRate ? nextDefaultRate : value.fxRate,
             });
           }}
         >

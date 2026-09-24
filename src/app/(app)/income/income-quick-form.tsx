@@ -2,15 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Save, WalletCards } from "lucide-react";
+import { Save, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CURRENCIES, emptyMoneyValue, moneyValueToIdr, type MoneyValue } from "@/components/money-input";
-import { DEFAULT_USD_IDR_RATE, formatMoney } from "@/lib/currency";
+import { MoneyInput, emptyMoneyValue, moneyValueToIdr, type MoneyValue } from "@/components/money-input";
 import { durationInputHint, parseDurationInput } from "@/lib/duration";
 import type { IncomePaymentStatus } from "@/lib/supabase/types";
 import { addIncomeTransaction, type IncomeTransactionInput } from "./actions";
@@ -35,7 +34,6 @@ export function IncomeQuickForm({
   const [paymentStatus, setPaymentStatus] = useState<IncomePaymentStatus>("waiting");
   const [totalHours, setTotalHours] = useState("");
   const [description, setDescription] = useState("");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
   const sourceItems = sources.map((source) => ({ value: source.id, label: source.name }));
@@ -49,16 +47,6 @@ export function IncomeQuickForm({
     setPaymentStatus("waiting");
     setTotalHours("");
     setDescription("");
-    setAdvancedOpen(false);
-  }
-
-  function setCurrency(currency: string | null) {
-    if (!currency) return;
-    setMoney((current) => ({
-      ...current,
-      currency,
-      fxRate: currency === "IDR" ? "1" : current.fxRate === "1" ? String(DEFAULT_USD_IDR_RATE) : current.fxRate,
-    }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -110,7 +98,7 @@ export function IncomeQuickForm({
       </CardHeader>
       <CardContent className="p-4">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(130px,0.75fr)_minmax(180px,1.2fr)_minmax(160px,0.9fr)_minmax(150px,0.8fr)_minmax(120px,0.65fr)]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(130px,0.75fr)_minmax(180px,1.1fr)_minmax(220px,1.25fr)_minmax(150px,0.75fr)_minmax(150px,0.8fr)]">
             <div className="flex flex-col gap-2">
               <Label>Date</Label>
               <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
@@ -130,16 +118,7 @@ export function IncomeQuickForm({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>Amount</Label>
-              <Input
-                type="number"
-                step="any"
-                placeholder="0"
-                value={money.amount}
-                onChange={(event) => setMoney((current) => ({ ...current, amount: event.target.value }))}
-              />
-            </div>
+            <MoneyInput value={money} onChange={setMoney} />
             <div className="flex flex-col gap-2">
               <Label>Status</Label>
               <Select
@@ -191,51 +170,6 @@ export function IncomeQuickForm({
               <Save className="size-4" />
               {saving ? "Saving..." : "Submit"}
             </Button>
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-emerald-100 pt-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="w-fit px-0"
-              onClick={() => setAdvancedOpen((open) => !open)}
-            >
-              <ChevronDown className={`size-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
-              Advanced
-            </Button>
-            {advancedOpen ? (
-              <div className="grid gap-3 md:grid-cols-[120px_160px_1fr] md:items-end">
-                <div className="flex flex-col gap-2">
-                  <Label>Currency</Label>
-                  <Select value={money.currency} onValueChange={setCurrency}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map((currency) => (
-                        <SelectItem key={currency} value={currency}>
-                          {currency}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>FX rate</Label>
-                  <Input
-                    type="number"
-                    step="any"
-                    value={money.fxRate}
-                    disabled={money.currency === "IDR"}
-                    onChange={(event) => setMoney((current) => ({ ...current, fxRate: event.target.value }))}
-                  />
-                </div>
-                <p className="pb-2 text-sm text-muted-foreground tabular-nums">
-                  {formatMoney(moneyValueToIdr(money), "IDR")}
-                </p>
-              </div>
-            ) : null}
           </div>
         </form>
       </CardContent>

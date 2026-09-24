@@ -8,6 +8,7 @@ import { Money } from "@/components/money";
 import { DurationDisplay } from "@/components/duration-display";
 import { MonthPicker } from "@/components/month-picker";
 import { createClient } from "@/lib/supabase/server";
+import { formatMoney } from "@/lib/currency";
 import { monthRange, monthStart } from "@/lib/dates";
 import { AddSourceDialog } from "./add-source-dialog";
 import { ensurePaidIncomeTransactions } from "./actions";
@@ -170,6 +171,7 @@ export default async function IncomePage({
     incomeTransactions: incomeList,
     teamEntries: teamEntryList,
   });
+  const myNetHours = incomeSummary.clientRows.reduce((sum, row) => sum + row.netHours, 0);
   const hiddenActiveClientIncomeIdr = summary?.active_hidden_income_idr ?? 0;
   const inactiveHistoricalClientIncomeIdr = Math.max(
     (summary?.freelance_client_income_idr ?? 0) -
@@ -201,7 +203,7 @@ export default async function IncomePage({
 
       <IncomeQuickForm key={month} sources={sourceList} selectedMonth={month} />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Net active clients</CardTitle>
@@ -262,6 +264,15 @@ export default async function IncomePage({
           </CardHeader>
           <CardContent>
             <Money amountIdr={incomeSummary.waitingAmountIdr} className="text-xl font-semibold" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">My net hours</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DurationDisplay hours={myNetHours} align="left" className="text-xl font-semibold" />
+            <p className="mt-1 text-xs text-muted-foreground">After Team time deduction</p>
           </CardContent>
         </Card>
       </div>
@@ -335,7 +346,8 @@ export default async function IncomePage({
                 <TableHead>Description</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Hours</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">Submitted</TableHead>
+                <TableHead className="text-right">IDR amount</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -354,6 +366,9 @@ export default async function IncomePage({
                     </TableCell>
                     <TableCell className="text-right">
                       <DurationDisplay hours={t.total_hours} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatMoney(t.amount, t.currency)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Money amountIdr={t.amount_idr} />
@@ -375,7 +390,7 @@ export default async function IncomePage({
               })}
               {incomeList.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No income logged this month yet.
                   </TableCell>
                 </TableRow>
