@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,6 +11,7 @@ import {
   HandCoins,
   HeartPulse,
   LayoutDashboard,
+  LoaderCircle,
   ReceiptText,
   Settings,
   ShieldCheck,
@@ -37,8 +39,15 @@ const navIcons = {
   settings: Settings,
 } satisfies Record<string, ComponentType<{ className?: string }>>;
 
+function isActiveHref(href: string, pathname: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
 export function Nav({ links }: { links: NavLink[] }) {
   const pathname = usePathname();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const visiblePendingHref =
+    pendingHref && !isActiveHref(pendingHref, pathname) ? pendingHref : null;
 
   return (
     <nav
@@ -46,22 +55,43 @@ export function Nav({ links }: { links: NavLink[] }) {
       aria-label="Primary"
     >
       {links.map((link) => {
-        const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+        const active = isActiveHref(link.href, pathname);
+        const pending = visiblePendingHref === link.href;
+        const selected = visiblePendingHref ? visiblePendingHref === link.href : active;
         const Icon = navIcons[link.id as keyof typeof navIcons] ?? Coins;
         return (
           <Link
             key={link.id}
             href={link.href}
+            onClick={(event) => {
+              if (
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey ||
+                active
+              ) {
+                return;
+              }
+              setPendingHref(link.href);
+            }}
             className={cn(
-              "flex h-11 shrink-0 snap-start items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-all duration-200 sm:h-10",
-              active
+              "relative flex h-11 shrink-0 snap-start items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-all duration-200 sm:h-10",
+              selected
                 ? "bg-primary text-primary-foreground shadow-sm shadow-sky-700/20"
-                : "text-muted-foreground hover:bg-white hover:text-foreground"
+                : "text-muted-foreground hover:bg-white hover:text-foreground",
+              pending ? "pr-8" : ""
             )}
             aria-current={active ? "page" : undefined}
+            aria-busy={pending ? "true" : undefined}
           >
             <Icon className="size-4" />
             {link.label}
+            {pending ? (
+              <LoaderCircle className="absolute right-2 size-3.5 animate-spin" aria-hidden="true" />
+            ) : null}
           </Link>
         );
       })}
