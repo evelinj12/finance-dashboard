@@ -11,7 +11,6 @@ import { createClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/currency";
 import { monthRange, monthStart } from "@/lib/dates";
 import { AddSourceDialog } from "./add-source-dialog";
-import { ensurePaidIncomeTransactions } from "./actions";
 import { IncomeDialog } from "./income-dialog";
 import { IncomeQuickForm } from "./income-quick-form";
 import {
@@ -114,8 +113,6 @@ export default async function IncomePage({
   const { month: monthParam } = await searchParams;
   const month = monthParam ?? monthStart();
   const [start, end] = monthRange(month);
-
-  await ensurePaidIncomeTransactions(month);
 
   const supabase = await createClient();
   const [

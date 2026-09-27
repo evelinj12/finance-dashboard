@@ -1,9 +1,9 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   Coins,
@@ -45,9 +45,22 @@ function isActiveHref(href: string, pathname: string) {
 
 export function Nav({ links }: { links: NavLink[] }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const visiblePendingHref =
     pendingHref && !isActiveHref(pendingHref, pathname) ? pendingHref : null;
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      links.forEach((link) => {
+        if (!isActiveHref(link.href, pathname)) {
+          router.prefetch(link.href);
+        }
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [links, pathname, router]);
 
   return (
     <nav
@@ -63,6 +76,10 @@ export function Nav({ links }: { links: NavLink[] }) {
           <Link
             key={link.id}
             href={link.href}
+            prefetch
+            onMouseEnter={() => router.prefetch(link.href)}
+            onFocus={() => router.prefetch(link.href)}
+            onTouchStart={() => router.prefetch(link.href)}
             onClick={(event) => {
               if (
                 event.defaultPrevented ||
