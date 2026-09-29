@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CategoryTag } from "@/lib/supabase/types";
-import { setBudgetDefaults } from "../budget/actions";
+import { deleteBudgetDefault, setBudgetDefaults } from "../budget/actions";
 
 interface BudgetDefaultCategory {
   id: string;
   name: string;
   tag: CategoryTag;
   budget: number;
+  hasDefault: boolean;
 }
 
 const tagLabels: Record<CategoryTag, string> = {
@@ -29,7 +31,11 @@ export function BudgetDefaultsSection({ categories }: { categories: BudgetDefaul
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(categories.map((category) => [category.id, String(category.budget)]))
   );
+  const [enabled, setEnabled] = useState<Record<string, boolean>>(
+    Object.fromEntries(categories.map((category) => [category.id, category.hasDefault]))
+  );
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const router = useRouter();
 
   const grouped = tagOrder.map((tag) => ({
@@ -41,10 +47,12 @@ export function BudgetDefaultsSection({ categories }: { categories: BudgetDefaul
     setSaving(true);
     try {
       await setBudgetDefaults(
-        categories.map((category) => ({
-          category_id: category.id,
-          budget_amount: Number(values[category.id]) || 0,
-        }))
+        categories
+          .filter((category) => enabled[category.id])
+          .map((category) => ({
+            category_id: category.id,
+            budget_amount: Number(values[category.id]) || 0,
+          }))
       );
       toast.success("Default budgets updated");
       router.refresh();
@@ -52,6 +60,29 @@ export function BudgetDefaultsSection({ categories }: { categories: BudgetDefaul
       toast.error(error instanceof Error ? error.message : "Failed to update default budgets");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(category: BudgetDefaultCategory) {
+    if (
+      !confirm(
+        `Delete the default budget for ${category.name}? This also clears this category's current-month budget amount.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(category.id);
+    try {
+      await deleteBudgetDefault(category.id);
+      setEnabled((current) => ({ ...current, [category.id]: false }));
+      setValues((current) => ({ ...current, [category.id]: "0" }));
+      toast.success("Default budget deleted");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete default budget");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -69,15 +100,49 @@ export function BudgetDefaultsSection({ categories }: { categories: BudgetDefaul
               <p className="mb-3 text-sm font-semibold text-muted-foreground">{tagLabels[tag]}</p>
               <div className="flex flex-col gap-2">
                 {rows.map((category) => (
-                  <div key={category.id} className="grid grid-cols-[1fr_9rem] items-center gap-2">
+                  <div
+                    key={category.id}
+                    className="grid grid-cols-[1fr_auto] items-center gap-2 sm:grid-cols-[1fr_9rem_auto]"
+                  >
                     <Label className="text-sm font-normal">{category.name}</Label>
-                    <Input
-                      type="number"
-                      value={values[category.id] ?? ""}
-                      onChange={(event) =>
-                        setValues((current) => ({ ...current, [category.id]: event.target.value }))
-                      }
-                    />
+                    {enabled[category.id] ? (
+                      <>
+                        <Input
+                          type="number"
+                          value={values[category.id] ?? ""}
+                          onChange={(event) =>
+                            setValues((current) => ({ ...current, [category.id]: event.target.value }))
+                          }
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleDelete(category)}
+                          disabled={deletingId === category.id || saving}
+                          aria-label={`Delete ${category.name} default budget`}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="hidden text-sm text-muted-foreground sm:block">No default</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEnabled((current) => ({ ...current, [category.id]: true }));
+                            setValues((current) => ({ ...current, [category.id]: current[category.id] ?? "0" }));
+                          }}
+                        >
+                          <Plus className="size-4" />
+                          Add
+                        </Button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

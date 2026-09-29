@@ -105,3 +105,18 @@ export async function setBudgetDefaults(entries: { category_id: string; budget_a
   if (error) throw new Error(error.message);
   revalidateBudgetPaths();
 }
+
+export async function deleteBudgetDefault(categoryId: string) {
+  const normalizedCategoryId = categoryId.trim();
+  if (!normalizedCategoryId) throw new Error("Category is required");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("budgets")
+    .delete()
+    .eq("category_id", normalizedCategoryId)
+    .in("month", [DEFAULT_BUDGET_MONTH, monthStart()]);
+
+  if (error) throw new Error(error.message);
+  revalidateBudgetPaths();
+}

@@ -110,13 +110,16 @@ export default async function SettingsPage({
               <BudgetDefaultsSection
                 categories={(categories ?? [])
                   .filter((category) => category.active)
-                  .map((category) => ({
-                    id: category.id,
-                    name: category.name,
-                    tag: category.tag,
-                    budget:
-                      budgetDefaults?.find((budget) => budget.category_id === category.id)?.budget_amount ?? 0,
-                  }))}
+                  .map((category) => {
+                    const budgetDefault = budgetDefaults?.find((budget) => budget.category_id === category.id);
+                    return {
+                      id: category.id,
+                      name: category.name,
+                      tag: category.tag,
+                      budget: budgetDefault?.budget_amount ?? 0,
+                      hasDefault: Boolean(budgetDefault),
+                    };
+                  })}
               />
             </CardContent>
           </Card>
