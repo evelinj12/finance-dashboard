@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DEFAULT_NAV_LINKS, getNavPreferences } from "@/components/nav-shell";
 import { createClient } from "@/lib/supabase/server";
 import { CategoriesSection } from "./categories-section";
+import { BudgetDefaultsSection } from "./budget-defaults-section";
 import { SinkingFundsSection } from "./sinking-funds-section";
 import { FixedTransactionsSection } from "./fixed-transactions-section";
 import { FamilyRoutinesSection } from "./family-routines-section";
@@ -13,6 +14,7 @@ import { NavPreferencesSection } from "./nav-preferences-section";
 
 const settingsTabs = new Set([
   "categories",
+  "budget-defaults",
   "income-sources",
   "sinking-funds",
   "fixed-transactions",
@@ -34,6 +36,7 @@ export default async function SettingsPage({
 
   const [
     { data: categories },
+    { data: budgetDefaults },
     { data: sinkingFunds },
     { data: fixedTransactions },
     { data: familyRoutines },
@@ -42,6 +45,7 @@ export default async function SettingsPage({
     navPreferences,
   ] = await Promise.all([
     supabase.from("categories").select("id, name, tag, active").order("sort_order"),
+    supabase.from("budgets").select("category_id, budget_amount").eq("month", "1900-01-01"),
     supabase.from("sinking_funds").select("id, name, monthly_amount, due_date, rolling, notes").order("name"),
     supabase
       .from("fixed_transactions")
@@ -76,6 +80,7 @@ export default async function SettingsPage({
       <Tabs defaultValue={defaultTab}>
         <TabsList>
           <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="budget-defaults">Budget Defaults</TabsTrigger>
           <TabsTrigger value="income-sources">Income Sources</TabsTrigger>
           <TabsTrigger value="sinking-funds">Sinking Funds</TabsTrigger>
           <TabsTrigger value="fixed-transactions">Fixed Transactions</TabsTrigger>
@@ -92,6 +97,27 @@ export default async function SettingsPage({
             </CardHeader>
             <CardContent>
               <CategoriesSection categories={categories ?? []} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="budget-defaults">
+          <Card>
+            <CardHeader>
+              <CardTitle>Monthly budget defaults</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BudgetDefaultsSection
+                categories={(categories ?? [])
+                  .filter((category) => category.active)
+                  .map((category) => ({
+                    id: category.id,
+                    name: category.name,
+                    tag: category.tag,
+                    budget:
+                      budgetDefaults?.find((budget) => budget.category_id === category.id)?.budget_amount ?? 0,
+                  }))}
+              />
             </CardContent>
           </Card>
         </TabsContent>

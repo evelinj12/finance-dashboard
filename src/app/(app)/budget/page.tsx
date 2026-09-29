@@ -10,6 +10,7 @@ import { budgetActualFromTransaction, budgetDifference } from "@/lib/finance/bud
 import { calculateSavingHealth, savingHealthPercent, savingHealthStatus } from "@/lib/finance/monthly-summary";
 import { ratioTrend } from "@/lib/finance/team-net";
 import type { CategoryTag } from "@/lib/supabase/types";
+import { ensureMonthlyBudgets } from "./actions";
 import { EditBudgetsDialog } from "./edit-budgets-dialog";
 
 const tagLabels: Record<string, string> = {
@@ -57,6 +58,8 @@ export default async function BudgetPage({
   const month = monthParam ?? monthStart();
   const previousMonth = shiftMonth(month, -1);
   const [start, end] = monthRange(month);
+
+  await ensureMonthlyBudgets(month);
 
   const supabase = await createClient();
   const [
