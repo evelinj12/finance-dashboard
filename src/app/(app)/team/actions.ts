@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange } from "@/lib/dates";
+import { calculateTeamAmount, monthFromDate } from "@/lib/team-rates";
 import type { TeamTransferStatus, TeamWorkStatus } from "@/lib/supabase/types";
 
 const teamWorkStatuses = ["need_approval", "owed", "paid"] as const;
@@ -235,6 +236,40 @@ async function getTeamPayoutCategoryId(supabase: SupabaseServerClient) {
   return created.id;
 }
 
+interface TeamRateLookupRow {
+  id: string;
+  team_member_id: string;
+  income_source_id: string;
+  month: string;
+  hourly_rate: number;
+  currency: string;
+  fx_rate: number;
+  active: boolean;
+}
+
+interface BulkApproveEntryRow {
+  id: string;
+  team_member_id: string;
+  income_source_id: string | null;
+  date: string;
+  hours: number | null;
+  amount: number;
+  currency: string;
+  fx_rate: number;
+  amount_idr: number;
+  team_member: { name: string } | { name: string }[] | null;
+  income_source: { name: string } | { name: string }[] | null;
+}
+
+function bulkApproveRelatedName(value: { name: string } | { name: string }[] | null): string {
+  if (Array.isArray(value)) return value[0]?.name ?? "-";
+  return value?.name ?? "-";
+}
+
+function rateKey(teamMemberId: string, incomeSourceId: string, month: string) {
+  return `${teamMemberId}:${incomeSourceId}:${month}`;
+}
+
 async function upsertTeamPayoutTransaction(
   supabase: SupabaseServerClient,
   transferGroupId: string,
@@ -317,25 +352,115 @@ export async function bulkApproveTeamWorkEntries(ids: string[]) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { data: entries, error: entriesError } = await supabase
     .from("team_work_entries")
-    .update({
-      status: "owed",
-      paid_at: null,
-      transfer_group_id: null,
-    })
+    .select(
+      "id, team_member_id, income_source_id, date, hours, amount, currency, fx_rate, amount_idr, team_member:team_members(name), income_source:income_sources(name)"
+    )
     .in("id", entryIds)
-    .eq("status", "need_approval")
-    .select("id");
+    .eq("status", "need_approval");
 
-  if (error) throw new Error(error.message);
+  if (entriesError) throw new Error(entriesError.message);
 
-  if ((data ?? []).length === 0) {
+  const pendingEntries = (entries ?? []) as BulkApproveEntryRow[];
+  if (pendingEntries.length === 0) {
     throw new Error("No selected entries were waiting for approval.");
   }
 
+  const entriesNeedingRates = pendingEntries.filter((entry) => Number(entry.amount_idr) === 0);
+  const memberIds = Array.from(new Set(entriesNeedingRates.map((entry) => entry.team_member_id)));
+  const sourceIds = Array.from(
+    new Set(
+      entriesNeedingRates
+        .map((entry) => entry.income_source_id)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const months = Array.from(new Set(entriesNeedingRates.map((entry) => monthFromDate(entry.date))));
+  const { data: rates, error: ratesError } =
+    entriesNeedingRates.length > 0 && memberIds.length > 0 && sourceIds.length > 0 && months.length > 0
+      ? await supabase
+          .from("team_member_rates")
+          .select("id, team_member_id, income_source_id, month, hourly_rate, currency, fx_rate, active")
+          .in("team_member_id", memberIds)
+          .in("income_source_id", sourceIds)
+          .in("month", months)
+          .eq("active", true)
+      : { data: [], error: null };
+
+  if (ratesError) throw new Error(ratesError.message);
+
+  const rateByKey = new Map(
+    ((rates ?? []) as TeamRateLookupRow[]).map((rate) => [
+      rateKey(rate.team_member_id, rate.income_source_id, rate.month),
+      rate,
+    ])
+  );
+
+  const missingRateLabels: string[] = [];
+  const updatePayloads = pendingEntries.map((entry) => {
+    if (Number(entry.amount_idr) > 0) {
+      return {
+        id: entry.id,
+        amount: entry.amount,
+        currency: entry.currency,
+        fx_rate: entry.fx_rate,
+        amount_idr: entry.amount_idr,
+      };
+    }
+
+    if (!entry.income_source_id) {
+      missingRateLabels.push(`${bulkApproveRelatedName(entry.team_member)} - no client - ${monthFromDate(entry.date)}`);
+      return null;
+    }
+
+    const rate = rateByKey.get(rateKey(entry.team_member_id, entry.income_source_id, monthFromDate(entry.date)));
+    const calculated = rate ? calculateTeamAmount(entry.hours, rate) : null;
+
+    if (!rate || !calculated) {
+      missingRateLabels.push(
+        `${bulkApproveRelatedName(entry.team_member)} - ${bulkApproveRelatedName(entry.income_source)} - ${monthFromDate(entry.date)}`
+      );
+      return null;
+    }
+
+    return {
+      id: entry.id,
+      amount: calculated.amount,
+      currency: calculated.currency,
+      fx_rate: calculated.fxRate,
+      amount_idr: calculated.amountIdr,
+    };
+  });
+
+  if (missingRateLabels.length > 0) {
+    throw new Error(`Missing active Team rate or valid hours for: ${missingRateLabels.slice(0, 5).join(", ")}`);
+  }
+
+  let approvedCount = 0;
+  for (const payload of updatePayloads) {
+    if (!payload) continue;
+    const { data, error } = await supabase
+      .from("team_work_entries")
+      .update({
+        amount: payload.amount,
+        currency: payload.currency,
+        fx_rate: payload.fx_rate,
+        amount_idr: payload.amount_idr,
+        status: "owed",
+        paid_at: null,
+        transfer_group_id: null,
+      })
+      .eq("id", payload.id)
+      .eq("status", "need_approval")
+      .select("id");
+
+    if (error) throw new Error(error.message);
+    approvedCount += data?.length ?? 0;
+  }
+
   revalidateTeamPaths();
-  return { approvedCount: data?.length ?? 0 };
+  return { approvedCount };
 }
 
 export async function deleteTeamWorkEntry(id: string) {

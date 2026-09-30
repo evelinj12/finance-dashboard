@@ -8,6 +8,7 @@ import { SinkingFundsSection } from "./sinking-funds-section";
 import { FixedTransactionsSection } from "./fixed-transactions-section";
 import { FamilyRoutinesSection } from "./family-routines-section";
 import { IncomeSourcesSection } from "./income-sources-section";
+import { TeamRatesSection } from "./team-rates-section";
 import { GoalSection } from "./goal-section";
 import { CurrencySection } from "./currency-section";
 import { NavPreferencesSection } from "./nav-preferences-section";
@@ -19,6 +20,7 @@ const settingsTabs = new Set([
   "sinking-funds",
   "fixed-transactions",
   "family-routines",
+  "team-rates",
   "goals",
   "currency",
   "navigation",
@@ -41,6 +43,8 @@ export default async function SettingsPage({
     { data: fixedTransactions },
     { data: familyRoutines },
     { data: incomeSources },
+    { data: teamMembers },
+    { data: teamRates },
     { data: goals },
     navPreferences,
   ] = await Promise.all([
@@ -65,6 +69,14 @@ export default async function SettingsPage({
       .order("active", { ascending: false })
       .order("type")
       .order("name"),
+    supabase.from("team_members").select("id, name, active").order("active", { ascending: false }).order("name"),
+    supabase
+      .from("team_member_rates")
+      .select(
+        "id, team_member_id, income_source_id, month, hourly_rate, currency, fx_rate, active, notes, team_member:team_members(name), income_source:income_sources(name)"
+      )
+      .order("month", { ascending: false })
+      .order("active", { ascending: false }),
     supabase
       .from("goals")
       .select("year, target_amount")
@@ -78,13 +90,14 @@ export default async function SettingsPage({
       <h2 className="text-2xl font-semibold">Settings</h2>
 
       <Tabs defaultValue={defaultTab}>
-        <TabsList>
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="budget-defaults">Budget Defaults</TabsTrigger>
           <TabsTrigger value="income-sources">Income Sources</TabsTrigger>
           <TabsTrigger value="sinking-funds">Sinking Funds</TabsTrigger>
           <TabsTrigger value="fixed-transactions">Fixed Transactions</TabsTrigger>
           <TabsTrigger value="family-routines">Family Routines</TabsTrigger>
+          <TabsTrigger value="team-rates">Team Rates</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
           <TabsTrigger value="currency">Currency</TabsTrigger>
           <TabsTrigger value="navigation">Navigation</TabsTrigger>
@@ -168,6 +181,21 @@ export default async function SettingsPage({
             </CardHeader>
             <CardContent>
               <FamilyRoutinesSection routines={familyRoutines ?? []} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="team-rates">
+          <Card>
+            <CardHeader>
+              <CardTitle>Team rate defaults</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TeamRatesSection
+                rates={teamRates ?? []}
+                members={teamMembers ?? []}
+                sources={(incomeSources ?? []).filter((source) => source.type === "freelance_client")}
+              />
             </CardContent>
           </Card>
         </TabsContent>

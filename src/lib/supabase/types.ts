@@ -297,6 +297,44 @@ export interface Database {
           },
         ];
       };
+      team_member_rates: {
+        Row: {
+          id: string;
+          team_member_id: string;
+          income_source_id: string;
+          month: string;
+          hourly_rate: number;
+          currency: string;
+          fx_rate: number;
+          active: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["team_member_rates"]["Row"]> & {
+          team_member_id: string;
+          income_source_id: string;
+          month: string;
+          hourly_rate: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["team_member_rates"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "team_member_rates_team_member_id_fkey";
+            columns: ["team_member_id"];
+            isOneToOne: false;
+            referencedRelation: "team_members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "team_member_rates_income_source_id_fkey";
+            columns: ["income_source_id"];
+            isOneToOne: false;
+            referencedRelation: "income_sources";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       team_work_entries: {
         Row: {
           id: string;

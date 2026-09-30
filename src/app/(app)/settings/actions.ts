@@ -43,6 +43,11 @@ function revalidateIncomeSourcePaths() {
   }
 }
 
+function revalidateTeamRatePaths() {
+  revalidatePath("/settings");
+  revalidatePath("/team");
+}
+
 export interface IncomeSourceInput {
   name: string;
   type: IncomeSourceType;
@@ -326,6 +331,74 @@ export async function deleteFamilyRoutineEntry(id: string) {
   const { error } = await supabase.from("family_routine_entries").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidateFamilyRoutinePaths();
+}
+
+export interface TeamMemberRateInput {
+  team_member_id: string;
+  income_source_id: string;
+  month: string;
+  hourly_rate: number;
+  currency: string;
+  fx_rate: number;
+  active: boolean;
+  notes: string | null;
+}
+
+const rateMonthPattern = /^\d{4}-\d{2}-01$/;
+
+function normalizeTeamMemberRateInput(input: TeamMemberRateInput) {
+  const teamMemberId = input.team_member_id.trim();
+  const incomeSourceId = input.income_source_id.trim();
+  const month = input.month.trim();
+  const hourlyRate = Number(input.hourly_rate);
+  const currency = input.currency.trim() || "IDR";
+  const fxRate = currency === "IDR" ? 1 : Number(input.fx_rate);
+
+  if (!teamMemberId) throw new Error("Team member is required");
+  if (!incomeSourceId) throw new Error("Client is required");
+  if (!rateMonthPattern.test(month)) throw new Error("Month must use YYYY-MM-01 format");
+  if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) throw new Error("Hourly rate must be greater than zero");
+  if (!["IDR", "USD", "AUD"].includes(currency)) throw new Error("Choose a valid currency");
+  if (!Number.isFinite(fxRate) || fxRate <= 0) throw new Error("FX rate must be greater than zero");
+
+  return {
+    team_member_id: teamMemberId,
+    income_source_id: incomeSourceId,
+    month,
+    hourly_rate: hourlyRate,
+    currency,
+    fx_rate: fxRate,
+    active: input.active,
+    notes: input.notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function addTeamMemberRate(input: TeamMemberRateInput) {
+  const supabase = await createClient();
+  const rate = normalizeTeamMemberRateInput(input);
+  const { error } = await supabase
+    .from("team_member_rates")
+    .upsert(rate, { onConflict: "team_member_id,income_source_id,month" });
+  if (error) throw new Error(error.message);
+  revalidateTeamRatePaths();
+}
+
+export async function updateTeamMemberRate(id: string, input: TeamMemberRateInput) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("team_member_rates")
+    .update(normalizeTeamMemberRateInput(input))
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateTeamRatePaths();
+}
+
+export async function deleteTeamMemberRate(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("team_member_rates").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateTeamRatePaths();
 }
 
 export async function setNetWorthGoal(year: number, targetAmount: number) {

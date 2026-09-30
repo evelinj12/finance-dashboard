@@ -44,6 +44,7 @@ export default async function TeamPage({
     { data: members, error: membersError },
     { data: sources, error: sourcesError },
     { data: entries, error: entriesError },
+    { data: rates, error: ratesError },
     { data: incomeTx, error: incomeTxError },
     { data: accessRows, error: accessRowsError },
   ] = await Promise.all([
@@ -63,6 +64,10 @@ export default async function TeamPage({
       .lt("date", end)
       .order("date", { ascending: false }),
     supabase
+      .from("team_member_rates")
+      .select("id, team_member_id, income_source_id, month, hourly_rate, currency, fx_rate, active")
+      .eq("month", month),
+    supabase
       .from("income_transactions")
       .select("id, income_source_id, amount_idr, total_hours, income_source:income_sources(name, type)")
       .gte("date", start)
@@ -73,6 +78,7 @@ export default async function TeamPage({
   if (membersError) throw new Error(`Failed to load team members: ${membersError.message}`);
   if (sourcesError) throw new Error(`Failed to load freelance client sources: ${sourcesError.message}`);
   if (entriesError) throw new Error(`Failed to load team work entries: ${entriesError.message}`);
+  if (ratesError) throw new Error(`Failed to load Team rates: ${ratesError.message}`);
   if (incomeTxError) throw new Error(`Failed to load client income transactions: ${incomeTxError.message}`);
   if (accessRowsError) throw new Error(`Failed to load team access: ${accessRowsError.message}`);
 
@@ -398,7 +404,7 @@ export default async function TeamPage({
         </CardContent>
       </Card>
 
-      <TeamWorkEntriesTable entries={teamEntries} members={memberList} sources={sourceList} />
+      <TeamWorkEntriesTable entries={teamEntries} members={memberList} sources={sourceList} rates={rates ?? []} />
     </div>
   );
 }
