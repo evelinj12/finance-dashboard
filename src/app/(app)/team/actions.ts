@@ -58,6 +58,13 @@ export interface TeamTransferInput {
   notes: string | null;
 }
 
+export interface TeamRateApplyInput {
+  entry_ids: string[];
+  hourly_rate: number;
+  currency: string;
+  fx_rate: number;
+}
+
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 function validateTeamWorkEntry(input: TeamWorkEntryInput) {
@@ -270,6 +277,20 @@ function rateKey(teamMemberId: string, incomeSourceId: string, month: string) {
   return `${teamMemberId}:${incomeSourceId}:${month}`;
 }
 
+function normalizeTeamRateApply(input: TeamRateApplyInput) {
+  const entryIds = Array.from(new Set(input.entry_ids.map((id) => id.trim()).filter(Boolean)));
+  const hourlyRate = Number(input.hourly_rate);
+  const currency = input.currency.trim() || "IDR";
+  const fxRate = currency === "IDR" ? 1 : Number(input.fx_rate);
+
+  if (entryIds.length === 0) throw new Error("Choose at least one Team entry to recalculate.");
+  if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) throw new Error("Hourly rate must be greater than zero");
+  if (!["IDR", "USD", "AUD"].includes(currency)) throw new Error("Choose a valid currency");
+  if (!Number.isFinite(fxRate) || fxRate <= 0) throw new Error("FX rate must be greater than zero");
+
+  return { entryIds, hourlyRate, currency, fxRate };
+}
+
 async function upsertTeamPayoutTransaction(
   supabase: SupabaseServerClient,
   transferGroupId: string,
@@ -461,6 +482,89 @@ export async function bulkApproveTeamWorkEntries(ids: string[]) {
 
   revalidateTeamPaths();
   return { approvedCount };
+}
+
+export async function applyTeamRateToEntries(input: TeamRateApplyInput) {
+  const { entryIds, hourlyRate, currency, fxRate } = normalizeTeamRateApply(input);
+  const supabase = await createClient();
+  const { data: entries, error: entriesError } = await supabase
+    .from("team_work_entries")
+    .select("id, team_member_id, income_source_id, date, hours, status")
+    .in("id", entryIds)
+    .in("status", ["need_approval", "owed"]);
+
+  if (entriesError) throw new Error(entriesError.message);
+  if (!entries || entries.length === 0) {
+    throw new Error("No selected editable Team entries found.");
+  }
+
+  const invalidEntries = entries.filter((entry) => !entry.income_source_id || !entry.hours || entry.hours <= 0);
+  if (invalidEntries.length > 0) {
+    throw new Error("Every selected entry needs a client and valid hours before a subtotal rate can be applied.");
+  }
+
+  const rateRowsByKey = new Map<
+    string,
+    {
+      team_member_id: string;
+      income_source_id: string;
+      month: string;
+      hourly_rate: number;
+      currency: string;
+      fx_rate: number;
+      active: boolean;
+      updated_at: string;
+    }
+  >();
+
+  const updatedAt = new Date().toISOString();
+  for (const entry of entries) {
+    const incomeSourceId = entry.income_source_id;
+    if (!incomeSourceId) continue;
+    const month = monthFromDate(entry.date);
+    rateRowsByKey.set(rateKey(entry.team_member_id, incomeSourceId, month), {
+      team_member_id: entry.team_member_id,
+      income_source_id: incomeSourceId,
+      month,
+      hourly_rate: hourlyRate,
+      currency,
+      fx_rate: fxRate,
+      active: true,
+      updated_at: updatedAt,
+    });
+  }
+
+  const rateRows = Array.from(rateRowsByKey.values());
+  if (rateRows.length > 0) {
+    const { error: rateError } = await supabase
+      .from("team_member_rates")
+      .upsert(rateRows, { onConflict: "team_member_id,income_source_id,month" });
+    if (rateError) throw new Error(rateError.message);
+  }
+
+  let updatedCount = 0;
+  for (const entry of entries) {
+    const calculated = calculateTeamAmount(entry.hours, { hourly_rate: hourlyRate, currency, fx_rate: fxRate });
+    if (!calculated) continue;
+
+    const { data, error } = await supabase
+      .from("team_work_entries")
+      .update({
+        amount: calculated.amount,
+        currency: calculated.currency,
+        fx_rate: calculated.fxRate,
+        amount_idr: calculated.amountIdr,
+      })
+      .eq("id", entry.id)
+      .in("status", ["need_approval", "owed"])
+      .select("id");
+
+    if (error) throw new Error(error.message);
+    updatedCount += data?.length ?? 0;
+  }
+
+  revalidateTeamPaths();
+  return { updatedCount };
 }
 
 export async function deleteTeamWorkEntry(id: string) {
