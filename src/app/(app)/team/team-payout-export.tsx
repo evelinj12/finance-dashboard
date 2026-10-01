@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { formatMoney } from "@/lib/currency";
 import type { TeamWorkStatus } from "@/lib/supabase/types";
 
@@ -49,6 +49,10 @@ const statusLabels: Record<ExportStatus, string> = {
 function relatedName(value: RelatedName | RelatedName[] | null): string {
   if (Array.isArray(value)) return value[0]?.name ?? "-";
   return value?.name ?? "-";
+}
+
+function SelectLabelText({ children }: { children: string }) {
+  return <span className="block min-w-0 truncate text-left">{children}</span>;
 }
 
 function formatDuration(hours: number | null | undefined) {
@@ -441,7 +445,7 @@ export function TeamPayoutExport({
             <Label>Team member</Label>
             <Select value={memberId} onValueChange={(value) => setMemberId(value ?? "")}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose member" />
+                <SelectLabelText>{memberName || "Choose member"}</SelectLabelText>
               </SelectTrigger>
               <SelectContent>
                 {(membersWithEntries.length > 0 ? membersWithEntries : members).map((member) => (
@@ -456,7 +460,7 @@ export function TeamPayoutExport({
             <Label>Entries</Label>
             <Select value={status} onValueChange={(value) => setStatus((value as ExportStatus) ?? "owed")}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectLabelText>{statusLabels[status]}</SelectLabelText>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="owed">Owed</SelectItem>
