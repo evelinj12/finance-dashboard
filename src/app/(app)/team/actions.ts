@@ -65,6 +65,12 @@ export interface TeamRateApplyInput {
   fx_rate: number;
 }
 
+export interface TeamBulkStatusInput {
+  entry_ids: string[];
+  status: TeamWorkStatus;
+  paid_at: string | null;
+}
+
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 function validateTeamWorkEntry(input: TeamWorkEntryInput) {
@@ -289,6 +295,18 @@ function normalizeTeamRateApply(input: TeamRateApplyInput) {
   if (!Number.isFinite(fxRate) || fxRate <= 0) throw new Error("FX rate must be greater than zero");
 
   return { entryIds, hourlyRate, currency, fxRate };
+}
+
+function normalizeTeamBulkStatus(input: TeamBulkStatusInput) {
+  const entryIds = Array.from(new Set(input.entry_ids.map((id) => id.trim()).filter(Boolean)));
+  const status = input.status;
+  const paidAt = status === "paid" ? input.paid_at?.trim() : null;
+
+  if (entryIds.length === 0) throw new Error("Choose at least one Team entry to update.");
+  if (!isTeamWorkStatus(status)) throw new Error("Choose a valid Team entry status.");
+  if (status === "paid" && !paidAt) throw new Error("Paid date is required.");
+
+  return { entryIds, status, paidAt };
 }
 
 async function upsertTeamPayoutTransaction(
@@ -561,6 +579,106 @@ export async function applyTeamRateToEntries(input: TeamRateApplyInput) {
 
     if (error) throw new Error(error.message);
     updatedCount += data?.length ?? 0;
+  }
+
+  revalidateTeamPaths();
+  return { updatedCount };
+}
+
+export async function bulkUpdateTeamWorkStatus(input: TeamBulkStatusInput) {
+  const { entryIds, status, paidAt } = normalizeTeamBulkStatus(input);
+  const supabase = await createClient();
+  const { data: entries, error: entriesError } = await supabase
+    .from("team_work_entries")
+    .select("id, team_member_id, date, amount_idr, status")
+    .in("id", entryIds)
+    .neq("status", "paid");
+
+  if (entriesError) throw new Error(entriesError.message);
+  if (!entries || entries.length === 0) {
+    throw new Error("No selected editable Team entries found.");
+  }
+
+  if (status !== "need_approval") {
+    const missingAmountCount = entries.filter((entry) => Number(entry.amount_idr) <= 0).length;
+    if (missingAmountCount > 0) {
+      throw new Error("Selected entries need a calculated amount before changing to Owed or Paid.");
+    }
+  }
+
+  if (status !== "paid") {
+    const { data, error } = await supabase
+      .from("team_work_entries")
+      .update({
+        status,
+        paid_at: null,
+        transfer_group_id: null,
+      })
+      .in(
+        "id",
+        entries.map((entry) => entry.id)
+      )
+      .neq("status", "paid")
+      .select("id");
+
+    if (error) throw new Error(error.message);
+    revalidateTeamPaths();
+    return { updatedCount: data?.length ?? 0 };
+  }
+
+  if (!paidAt) throw new Error("Paid date is required.");
+
+  const groups = new Map<string, { teamMemberId: string; month: string; ids: string[] }>();
+  for (const entry of entries) {
+    const month = monthFromDate(entry.date);
+    const key = `${entry.team_member_id}:${month}`;
+    const current = groups.get(key) ?? { teamMemberId: entry.team_member_id, month, ids: [] };
+    current.ids.push(entry.id);
+    groups.set(key, current);
+  }
+
+  let updatedCount = 0;
+  for (const group of groups.values()) {
+    const [start, end] = monthRange(group.month);
+    const { data: existingTransferredEntries, error: existingError } = await supabase
+      .from("team_work_entries")
+      .select("transfer_group_id")
+      .eq("team_member_id", group.teamMemberId)
+      .not("transfer_group_id", "is", null)
+      .gte("date", start)
+      .lt("date", end);
+
+    if (existingError) throw new Error(existingError.message);
+
+    const transferGroupId =
+      existingTransferredEntries
+        ?.map((entry) => entry.transfer_group_id)
+        .find((value): value is string => Boolean(value)) ?? randomUUID();
+
+    const { data, error } = await supabase
+      .from("team_work_entries")
+      .update({
+        status: "paid",
+        paid_at: paidAt,
+        transfer_group_id: transferGroupId,
+      })
+      .in("id", group.ids)
+      .neq("status", "paid")
+      .select("id");
+
+    if (error) throw new Error(error.message);
+    updatedCount += data?.length ?? 0;
+
+    const { data: groupEntries, error: groupEntriesError } = await supabase
+      .from("team_work_entries")
+      .select("amount_idr")
+      .eq("transfer_group_id", transferGroupId);
+
+    if (groupEntriesError) throw new Error(groupEntriesError.message);
+
+    const amountIdr = (groupEntries ?? []).reduce((sum, entry) => sum + Number(entry.amount_idr), 0);
+    const teamMemberName = await getTeamMemberName(supabase, group.teamMemberId);
+    await upsertTeamPayoutTransaction(supabase, transferGroupId, teamMemberName, paidAt, amountIdr, null);
   }
 
   revalidateTeamPaths();

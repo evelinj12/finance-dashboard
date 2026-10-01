@@ -16,7 +16,7 @@ import { CURRENCIES } from "@/components/money-input";
 import { defaultIdrRateForCurrency, formatMoney } from "@/lib/currency";
 import type { TeamWorkStatus } from "@/lib/supabase/types";
 import { calculateTeamAmount, monthFromDate } from "@/lib/team-rates";
-import { applyTeamRateToEntries, bulkApproveTeamWorkEntries } from "./actions";
+import { applyTeamRateToEntries, bulkApproveTeamWorkEntries, bulkUpdateTeamWorkStatus } from "./actions";
 import { DeleteTeamWorkButton } from "./delete-team-work-button";
 import { TeamWorkDialog } from "./team-work-dialog";
 
@@ -202,6 +202,12 @@ function inferredRateFromEntries(group: GroupedTeamEntries) {
   };
 }
 
+function todayInputValue() {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 10);
+}
+
 function ClientSubtotalControls({
   group,
   rates,
@@ -328,6 +334,9 @@ export function TeamWorkEntriesTable({
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [approving, setApproving] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<TeamWorkStatus>("paid");
+  const [bulkPaidAt, setBulkPaidAt] = useState(todayInputValue);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const adjustableIds = entries.filter((entry) => entry.status !== "paid").map((entry) => entry.id);
   const approvableIds = entries.filter((entry) => entry.status === "need_approval").map((entry) => entry.id);
   const selectedAdjustableIds = selectedIds.filter((id) => adjustableIds.includes(id));
@@ -412,11 +421,72 @@ export function TeamWorkEntriesTable({
     }
   }
 
+  async function handleBulkStatusUpdate() {
+    if (selectedAdjustableIds.length === 0) {
+      toast.error("Choose at least one editable entry first.");
+      return;
+    }
+
+    setUpdatingStatus(true);
+    try {
+      const result = await bulkUpdateTeamWorkStatus({
+        entry_ids: selectedAdjustableIds,
+        status: bulkStatus,
+        paid_at: bulkStatus === "paid" ? bulkPaidAt : null,
+      });
+      toast.success(`${result.updatedCount} ${result.updatedCount === 1 ? "entry" : "entries"} updated`);
+      setSelectedIds([]);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update selected entries");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Team work entries</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
+          {selectedAdjustableIds.length > 0 ? (
+            <>
+              <Select
+                value={bulkStatus}
+                onValueChange={(value) =>
+                  setBulkStatus(statusLabels[value as TeamWorkStatus] ? (value as TeamWorkStatus) : "paid")
+                }
+              >
+                <SelectTrigger className="h-9 w-[10.5rem]">
+                  <span className="truncate">{statusLabels[bulkStatus]}</span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="need_approval">Need approval</SelectItem>
+                  <SelectItem value="owed">Owed</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
+              {bulkStatus === "paid" ? (
+                <Input
+                  type="date"
+                  value={bulkPaidAt}
+                  onChange={(event) => setBulkPaidAt(event.target.value)}
+                  className="h-9 w-[9.5rem]"
+                  aria-label="Paid date for selected entries"
+                />
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleBulkStatusUpdate}
+                disabled={updatingStatus || selectedAdjustableIds.length === 0}
+              >
+                {updatingStatus
+                  ? "Updating..."
+                  : `Set selected (${selectedAdjustableIds.length})`}
+              </Button>
+            </>
+          ) : null}
           {approvableIds.length > 0 ? (
             <>
               <Button type="button" variant="outline" size="sm" onClick={() => setSelectedIds(approvableIds)}>
