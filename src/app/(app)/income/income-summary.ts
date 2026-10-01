@@ -68,6 +68,7 @@ export function buildIncomeSummary({
 }): {
   paidAmountIdr: number;
   waitingAmountIdr: number;
+  clientNetAmountIdr: number;
   clientRows: IncomeClientSummaryRow[];
 } {
   let paidAmountIdr = 0;
@@ -128,6 +129,7 @@ export function buildIncomeSummary({
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+  const clientNetAmountIdr = clientRows.reduce((sum, row) => sum + row.netAmountIdr, 0);
 
-  return { paidAmountIdr, waitingAmountIdr, clientRows };
+  return { paidAmountIdr, waitingAmountIdr, clientNetAmountIdr, clientRows };
 }

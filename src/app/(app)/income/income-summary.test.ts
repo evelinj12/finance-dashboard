@@ -31,6 +31,7 @@ describe("buildIncomeSummary", () => {
 
     assert.equal(summary.paidAmountIdr, 10_000_000);
     assert.equal(summary.waitingAmountIdr, 3_000_000);
+    assert.equal(summary.clientNetAmountIdr, 10_000_000);
   });
 
   it("deducts team money and hours from freelance client rows only", () => {
@@ -85,6 +86,7 @@ describe("buildIncomeSummary", () => {
         netHours: 25,
       },
     ]);
+    assert.equal(summary.clientNetAmountIdr, 14_000_000);
   });
 
   it("normalizes legacy income statuses like the migration", () => {
