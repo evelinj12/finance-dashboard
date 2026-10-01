@@ -11,6 +11,7 @@ import { monthRange, monthStart } from "@/lib/dates";
 import { calculateClientNet } from "@/lib/finance/team-net";
 import { DeleteTeamMemberButton } from "./delete-team-member-button";
 import { TeamMemberDialog } from "./team-member-dialog";
+import { TeamPayoutExport } from "./team-payout-export";
 import { TeamTransferStatusForm, type TeamTransferPerson } from "./team-transfer-status-form";
 import { TeamWorkEntriesTable } from "./team-work-entries-table";
 import { TeamWorkQuickForm } from "./team-work-quick-form";
@@ -281,6 +282,8 @@ export default async function TeamPage({
       </div>
 
       <TeamTransferStatusForm selectedMonth={month} people={transferPeople} />
+
+      <TeamPayoutExport entries={teamEntries} members={memberList} selectedMonth={month} />
 
       <Card>
         <CardHeader>
