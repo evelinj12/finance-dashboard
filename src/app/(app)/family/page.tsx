@@ -46,8 +46,48 @@ function directionLabel(direction: FamilySupportDirection) {
   return direction === "add" ? "Tambah" : "Potong";
 }
 
-function statusLabel(status: FamilyTransferStatus | undefined) {
-  return status === "transferred" ? "Transferred" : "Not transferred";
+function familySettlementCopy(person: string, amountToSend: number) {
+  if (amountToSend > 0) {
+    return {
+      headline: `You send to ${person}`,
+      amountLabel: "Amount to send",
+      pendingLabel: "Not sent",
+      completedLabel: "Sent",
+      dateLabel: "Sent at",
+      amountClassName: "font-medium text-emerald-700",
+    };
+  }
+
+  if (amountToSend < 0) {
+    return {
+      headline: `${person} sends to you`,
+      amountLabel: "Amount to receive",
+      pendingLabel: "Not received",
+      completedLabel: "Received",
+      dateLabel: "Received at",
+      amountClassName: "font-medium text-sky-700",
+    };
+  }
+
+  return {
+    headline: "Settled",
+    amountLabel: "Amount",
+    pendingLabel: "No action needed",
+    completedLabel: "Settled",
+    dateLabel: "Settled at",
+    amountClassName: "font-medium",
+  };
+}
+
+function familyStatusLabel(status: FamilyTransferStatus | undefined, person: string, amountToSend: number) {
+  const copy = familySettlementCopy(person, amountToSend);
+  return status === "transferred" ? copy.completedLabel : copy.pendingLabel;
+}
+
+function monthSettlementTitle(amountToSend: number, month: string) {
+  if (amountToSend > 0) return `Amount to send for ${formatMonthLabel(month)}`;
+  if (amountToSend < 0) return `Amount to receive for ${formatMonthLabel(month)}`;
+  return `Family balance for ${formatMonthLabel(month)}`;
 }
 
 export default async function FamilyPage({
@@ -157,11 +197,11 @@ export default async function FamilyPage({
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Amount to send for {formatMonthLabel(month)}
+              {monthSettlementTitle(amountToSend, month)}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Money amountIdr={amountToSend} signed className="text-xl font-semibold" />
+            <Money amountIdr={Math.abs(amountToSend)} className="text-xl font-semibold" />
           </CardContent>
         </Card>
       </div>
@@ -171,29 +211,41 @@ export default async function FamilyPage({
           <CardTitle>Transfer status</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <FamilyTransferForm selectedMonth={month} people={people} transfers={transferRows} />
+          <FamilyTransferForm
+            selectedMonth={month}
+            people={people}
+            summaries={personSummaries}
+            transfers={transferRows}
+          />
           <div className="grid gap-2 md:grid-cols-2">
-            {personSummaries.map((summary) => (
-              <div key={summary.person} className="rounded-md border bg-white/55 px-3 py-2">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium">{summary.person}</p>
-                  <Badge variant={summary.status === "transferred" ? "secondary" : "outline"}>
-                    {statusLabel(summary.status)}
-                  </Badge>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Amount to send</p>
-                    <Money amountIdr={summary.amountToSend} signed className="font-medium" />
+            {personSummaries.map((summary) => {
+              const copy = familySettlementCopy(summary.person, summary.amountToSend);
+
+              return (
+                <div key={summary.person} className="rounded-md border bg-white/55 px-3 py-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{summary.person}</p>
+                      <p className="text-xs text-muted-foreground">{copy.headline}</p>
+                    </div>
+                    <Badge variant={summary.status === "transferred" ? "secondary" : "outline"}>
+                      {familyStatusLabel(summary.status, summary.person, summary.amountToSend)}
+                    </Badge>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Transferred at</p>
-                    <p className="font-medium">{summary.transferredAt ?? "-"}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">{copy.amountLabel}</p>
+                      <Money amountIdr={Math.abs(summary.amountToSend)} className={copy.amountClassName} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{copy.dateLabel}</p>
+                      <p className="font-medium">{summary.transferredAt ?? "-"}</p>
+                    </div>
                   </div>
+                  {summary.notes ? <p className="mt-2 text-sm text-muted-foreground">{summary.notes}</p> : null}
                 </div>
-                {summary.notes ? <p className="mt-2 text-sm text-muted-foreground">{summary.notes}</p> : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>

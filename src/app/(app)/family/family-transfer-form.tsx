@@ -19,18 +19,54 @@ interface Transfer {
   notes: string | null;
 }
 
+interface FamilySummary {
+  person: string;
+  amountToSend: number;
+}
+
+function settlementCopy(person: string, amountToSend: number) {
+  if (amountToSend > 0) {
+    return {
+      headline: `You send to ${person}`,
+      pendingLabel: "Not sent",
+      completedLabel: "Sent",
+      dateLabel: "Sent date",
+    };
+  }
+
+  if (amountToSend < 0) {
+    return {
+      headline: `${person} sends to you`,
+      pendingLabel: "Not received",
+      completedLabel: "Received",
+      dateLabel: "Received date",
+    };
+  }
+
+  return {
+    headline: "Settled",
+    pendingLabel: "No action needed",
+    completedLabel: "Settled",
+    dateLabel: "Settled date",
+  };
+}
+
 export function FamilyTransferForm({
   selectedMonth,
   people,
+  summaries,
   transfers,
 }: {
   selectedMonth: string;
   people: string[];
+  summaries: FamilySummary[];
   transfers: Transfer[];
 }) {
   const defaultPerson = people[0] ?? "Sister";
   const [person, setPerson] = useState(defaultPerson);
   const currentTransfer = transfers.find((transfer) => transfer.person === person);
+  const currentSummary = summaries.find((summary) => summary.person === person);
+  const copy = settlementCopy(person, currentSummary?.amountToSend ?? 0);
   const [status, setStatus] = useState<FamilyTransferStatus>(currentTransfer?.status ?? "not_transferred");
   const [transferredAt, setTransferredAt] = useState(currentTransfer?.transferred_at ?? todayStr());
   const [notes, setNotes] = useState(currentTransfer?.notes ?? "");
@@ -58,7 +94,7 @@ export function FamilyTransferForm({
     setSaving(true);
     try {
       await upsertFamilyTransfer(input);
-      toast.success("Transfer status saved");
+      toast.success("Settlement status saved");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save transfer status");
@@ -95,16 +131,17 @@ export function FamilyTransferForm({
           onValueChange={(value) => setStatus(value === "transferred" ? "transferred" : "not_transferred")}
         >
           <SelectTrigger>
-            <SelectValue />
+            <SelectValue placeholder={copy.pendingLabel} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="not_transferred">Not transferred</SelectItem>
-            <SelectItem value="transferred">Transferred</SelectItem>
+            <SelectItem value="not_transferred">{copy.pendingLabel}</SelectItem>
+            <SelectItem value="transferred">{copy.completedLabel}</SelectItem>
           </SelectContent>
         </Select>
+        <p className="text-xs text-muted-foreground">{copy.headline}</p>
       </div>
       <div className="flex flex-col gap-2">
-        <Label>Transferred date</Label>
+        <Label>{copy.dateLabel}</Label>
         <Input
           type="date"
           value={transferredAt}
