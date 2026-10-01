@@ -423,7 +423,7 @@ export default async function OverviewPage({
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
               <WalletCards className="size-4 text-emerald-600" />
-              Monthly income
+              Monthly net income
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -459,7 +459,7 @@ export default async function OverviewPage({
           </CardHeader>
           <CardContent>
             <Money amountIdr={netAfterSavings} signed className="text-2xl font-bold money-figures" />
-            <p className="mt-1 text-xs text-muted-foreground">Income minus true expenses and sinking funds</p>
+            <p className="mt-1 text-xs text-muted-foreground">Net income minus true expenses and sinking funds</p>
           </CardContent>
         </Card>
 

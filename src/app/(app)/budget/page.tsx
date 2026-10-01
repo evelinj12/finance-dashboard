@@ -156,7 +156,7 @@ export default async function BudgetPage({
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <p className="text-sm text-muted-foreground">Income</p>
+              <p className="text-sm text-muted-foreground">Net income</p>
               <Money amountIdr={summary?.total_income_idr ?? 0} className="text-lg font-semibold" />
             </div>
             <div>
@@ -194,7 +194,7 @@ export default async function BudgetPage({
             >
               {status}
             </Badge>
-            <span>Target: more than 50%</span>
+            <span>Target: more than 50% of net income</span>
           </div>
         </CardContent>
       </Card>

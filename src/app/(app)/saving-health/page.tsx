@@ -36,7 +36,7 @@ export default async function SavingHealthPage() {
       <div>
         <h2 className="text-2xl font-semibold">Saving Health</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Target: save more than 50% of income through sinking funds and leftover net.
+          Target: save more than 50% of net income through sinking funds and leftover net.
         </p>
       </div>
 
@@ -46,7 +46,7 @@ export default async function SavingHealthPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Month</TableHead>
-                <TableHead className="text-right">Income</TableHead>
+                <TableHead className="text-right">Net income</TableHead>
                 <TableHead className="text-right">True expenses</TableHead>
                 <TableHead className="text-right">Sinking funds</TableHead>
                 <TableHead className="text-right">Net</TableHead>
