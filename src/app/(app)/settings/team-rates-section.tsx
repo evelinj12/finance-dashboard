@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { CURRENCIES } from "@/components/money-input";
 import { defaultIdrRateForCurrency, formatMoney } from "@/lib/currency";
 import { monthStart } from "@/lib/dates";
@@ -61,10 +61,18 @@ function relatedName(value: RelatedName | RelatedName[] | null): string {
   return value?.name ?? "-";
 }
 
+function optionName(options: Array<{ id: string; name: string }>, id: string, fallback = "Select") {
+  return options.find((option) => option.id === id)?.name ?? fallback;
+}
+
 function formatRateMonth(month: string) {
   return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(
     new Date(`${month}T00:00:00Z`)
   );
+}
+
+function SelectLabelText({ children }: { children: string }) {
+  return <span className="block min-w-0 truncate text-left">{children}</span>;
 }
 
 function rateInput({
@@ -169,91 +177,106 @@ export function TeamRatesSection({
         and FX rate stay locked even if this setting changes later.
       </p>
 
-      <div className="grid gap-3 rounded-lg border border-sky-100 bg-sky-50/50 p-3 md:grid-cols-[0.8fr_1fr_0.7fr_0.65fr_0.65fr_0.8fr_1fr_auto] md:items-end">
-        <div className="flex flex-col gap-2">
-          <Label>Member</Label>
-          <Select value={teamMemberId} onValueChange={(value) => setTeamMemberId(value ?? "")}>
-            <SelectTrigger>
-              <SelectValue placeholder="Member" />
-            </SelectTrigger>
-            <SelectContent>
-              {activeMembers.map((member) => (
-                <SelectItem key={member.id} value={member.id}>
-                  {member.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>Client</Label>
-          <Select value={sourceId} onValueChange={(value) => setSourceId(value ?? "")}>
-            <SelectTrigger>
-              <SelectValue placeholder="Client" />
-            </SelectTrigger>
-            <SelectContent>
-              {activeSources.map((source) => (
-                <SelectItem key={source.id} value={source.id}>
-                  {source.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>Month</Label>
-          <Input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>Hourly rate</Label>
-          <Input
-            type="number"
-            step="any"
-            min="0"
-            value={hourlyRate}
-            onChange={(event) => setHourlyRate(event.target.value)}
-            placeholder="0"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>Currency</Label>
-          <Select
-            value={currency}
-            onValueChange={(value) => {
-              if (!value) return;
-              setCurrency(value);
-              setFxRate(String(defaultIdrRateForCurrency(value)));
-            }}
+      <div className="rounded-xl border border-sky-100 bg-sky-50/50 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="text-sm font-semibold text-foreground">New monthly rate</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Pick a member and client, then set the rate for that month.
+            </p>
+          </div>
+          <Button
+            className="w-full sm:w-auto"
+            onClick={handleAdd}
+            disabled={saving || activeMembers.length === 0 || activeSources.length === 0}
           >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CURRENCIES.map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {saving ? "Saving..." : "Save rate"}
+          </Button>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label>FX to IDR</Label>
-          <Input
-            type="number"
-            step="any"
-            value={currency === "IDR" ? "1" : fxRate}
-            onChange={(event) => setFxRate(event.target.value)}
-            disabled={currency === "IDR"}
-          />
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-6">
+          <div className="flex min-w-0 flex-col gap-2 xl:col-span-2">
+            <Label>Member</Label>
+            <Select value={teamMemberId} onValueChange={(value) => setTeamMemberId(value ?? "")}>
+              <SelectTrigger className="w-full">
+                <SelectLabelText>{optionName(activeMembers, teamMemberId, "Select member")}</SelectLabelText>
+              </SelectTrigger>
+              <SelectContent>
+                {activeMembers.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2 xl:col-span-2">
+            <Label>Client</Label>
+            <Select value={sourceId} onValueChange={(value) => setSourceId(value ?? "")}>
+              <SelectTrigger className="w-full">
+                <SelectLabelText>{optionName(activeSources, sourceId, "Select client")}</SelectLabelText>
+              </SelectTrigger>
+              <SelectContent>
+                {activeSources.map((source) => (
+                  <SelectItem key={source.id} value={source.id}>
+                    {source.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label>Month</Label>
+            <Input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label>Hourly rate</Label>
+            <Input
+              type="number"
+              step="any"
+              min="0"
+              value={hourlyRate}
+              onChange={(event) => setHourlyRate(event.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label>Currency</Label>
+            <Select
+              value={currency}
+              onValueChange={(value) => {
+                if (!value) return;
+                setCurrency(value);
+                setFxRate(String(defaultIdrRateForCurrency(value)));
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectLabelText>{currency}</SelectLabelText>
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label>FX to IDR</Label>
+            <Input
+              type="number"
+              step="any"
+              value={currency === "IDR" ? "1" : fxRate}
+              onChange={(event) => setFxRate(event.target.value)}
+              disabled={currency === "IDR"}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-2 lg:col-span-2 xl:col-span-4">
+            <Label>Notes</Label>
+            <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional" />
+          </div>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label>Notes</Label>
-          <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional" />
-        </div>
-        <Button onClick={handleAdd} disabled={saving || activeMembers.length === 0 || activeSources.length === 0}>
-          {saving ? "Saving..." : "Save"}
-        </Button>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -298,6 +321,8 @@ function TeamRateRow({
   const [notes, setNotes] = useState(rate.notes ?? "");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const memberName = optionName(members, teamMemberId, relatedName(rate.team_member));
+  const sourceName = optionName(sources, sourceId, relatedName(rate.income_source));
 
   function reset() {
     setTeamMemberId(rate.team_member_id);
@@ -339,117 +364,160 @@ function TeamRateRow({
 
   if (editing) {
     return (
-      <div className="grid gap-3 rounded-md border bg-muted/20 p-3 md:grid-cols-[0.8fr_1fr_0.7fr_0.65fr_0.65fr_0.8fr_0.55fr_1fr_auto] md:items-end">
-        <div className="flex flex-col gap-2">
-          <Label>Member</Label>
-          <Select value={teamMemberId} onValueChange={(value) => setTeamMemberId(value ?? "")}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {members.map((member) => (
-                <SelectItem key={member.id} value={member.id}>
-                  {member.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="rounded-xl border border-sky-100 bg-white/80 p-4 shadow-sm shadow-sky-950/5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-foreground">Edit monthly rate</div>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {memberName} · {sourceName}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleUpdate} disabled={saving}>
+              <Check className="size-4" />
+              {saving ? "Saving..." : "Save"}
+            </Button>
+            <Button variant="outline" onClick={reset}>
+              <X className="size-4" />
+              Cancel
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label>Client</Label>
-          <Select value={sourceId} onValueChange={(value) => setSourceId(value ?? "")}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sources.map((source) => (
-                <SelectItem key={source.id} value={source.id}>
-                  {source.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>Month</Label>
-          <Input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>Hourly rate</Label>
-          <Input type="number" step="any" min="0" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>Currency</Label>
-          <Select
-            value={currency}
-            onValueChange={(value) => {
-              if (!value) return;
-              setCurrency(value);
-              setFxRate(String(defaultIdrRateForCurrency(value)));
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CURRENCIES.map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>FX to IDR</Label>
-          <Input
-            type="number"
-            step="any"
-            value={currency === "IDR" ? "1" : fxRate}
-            onChange={(event) => setFxRate(event.target.value)}
-            disabled={currency === "IDR"}
-          />
-        </div>
-        <label className="flex items-center gap-2 pb-2 text-sm font-medium">
-          <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
-          Active
-        </label>
-        <div className="flex flex-col gap-2">
-          <Label>Notes</Label>
-          <Input value={notes} onChange={(event) => setNotes(event.target.value)} />
-        </div>
-        <div className="flex items-center gap-1">
-          <Button size="icon" onClick={handleUpdate} disabled={saving} aria-label="Save Team rate">
-            <Check className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={reset} aria-label="Cancel Team rate edit">
-            <X className="size-4" />
-          </Button>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-6">
+          <div className="flex min-w-0 flex-col gap-2 xl:col-span-2">
+            <Label>Member</Label>
+            <Select value={teamMemberId} onValueChange={(value) => setTeamMemberId(value ?? "")}>
+              <SelectTrigger className="w-full">
+                <SelectLabelText>{memberName}</SelectLabelText>
+              </SelectTrigger>
+              <SelectContent>
+                {members.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2 xl:col-span-2">
+            <Label>Client</Label>
+            <Select value={sourceId} onValueChange={(value) => setSourceId(value ?? "")}>
+              <SelectTrigger className="w-full">
+                <SelectLabelText>{sourceName}</SelectLabelText>
+              </SelectTrigger>
+              <SelectContent>
+                {sources.map((source) => (
+                  <SelectItem key={source.id} value={source.id}>
+                    {source.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label>Month</Label>
+            <Input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label>Hourly rate</Label>
+            <Input
+              type="number"
+              step="any"
+              min="0"
+              value={hourlyRate}
+              onChange={(event) => setHourlyRate(event.target.value)}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label>Currency</Label>
+            <Select
+              value={currency}
+              onValueChange={(value) => {
+                if (!value) return;
+                setCurrency(value);
+                setFxRate(String(defaultIdrRateForCurrency(value)));
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectLabelText>{currency}</SelectLabelText>
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label>FX to IDR</Label>
+            <Input
+              type="number"
+              step="any"
+              value={currency === "IDR" ? "1" : fxRate}
+              onChange={(event) => setFxRate(event.target.value)}
+              disabled={currency === "IDR"}
+            />
+          </div>
+          <label className="flex min-h-10 items-center gap-2 rounded-lg border border-input bg-white/70 px-3 text-sm font-medium">
+            <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
+            Active
+          </label>
+          <div className="flex min-w-0 flex-col gap-2 lg:col-span-2 xl:col-span-3">
+            <Label>Notes</Label>
+            <Input value={notes} onChange={(event) => setNotes(event.target.value)} />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2">
-      <div>
-        <div className="font-medium">
-          {relatedName(rate.team_member)} · {relatedName(rate.income_source)}
+    <div className="rounded-xl border bg-white/75 p-4 shadow-sm shadow-sky-950/5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{relatedName(rate.team_member)}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="font-semibold text-primary">{relatedName(rate.income_source)}</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                rate.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+              }`}
+            >
+              {rate.active ? "Active" : "Inactive"}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Month</div>
+              <div>{formatRateMonth(rate.month)}</div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hourly rate</div>
+              <div>{formatMoney(rate.hourly_rate, rate.currency)}/hr</div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Currency</div>
+              <div>{rate.currency}</div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">FX to IDR</div>
+              <div>{Number(rate.fx_rate).toLocaleString("en-US")}</div>
+            </div>
+          </div>
+          {rate.notes ? <div className="mt-3 text-sm text-muted-foreground">{rate.notes}</div> : null}
         </div>
-        <div className="text-sm text-muted-foreground">
-          {formatRateMonth(rate.month)} · {formatMoney(rate.hourly_rate, rate.currency)}/hr · FX{" "}
-          {Number(rate.fx_rate).toLocaleString("en-US")}
-          {rate.active ? "" : " · inactive"}
-          {rate.notes ? ` · ${rate.notes}` : ""}
+        <div className="flex shrink-0 items-center gap-1">
+          <Button variant="ghost" size="icon" onClick={() => setEditing(true)} aria-label="Edit Team rate">
+            <Pencil className="size-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => onDelete(rate.id)} aria-label="Delete Team rate">
+            <Trash2 className="size-4" />
+          </Button>
         </div>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" onClick={() => setEditing(true)} aria-label="Edit Team rate">
-          <Pencil className="size-4" />
-        </Button>
-        <Button variant="ghost" size="icon" onClick={() => onDelete(rate.id)} aria-label="Delete Team rate">
-          <Trash2 className="size-4" />
-        </Button>
       </div>
     </div>
   );
