@@ -12,6 +12,7 @@ import { Money } from "@/components/money";
 import { todayStr } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 import { getTeamAccessProfile } from "@/lib/team-access";
+import { remainingAdjustment } from "@/lib/team-adjustments";
 import { signOutTeamAccess, submitTeamAccessWork } from "./actions";
 
 const statusLabels = {
@@ -76,7 +77,8 @@ export default async function TeamAccessPage({
     );
   }
 
-  const [{ data: sources, error: sourcesError }, { data: entries, error: entriesError }] = await Promise.all([
+  const [{ data: sources, error: sourcesError }, { data: entries, error: entriesError },
+    { data: adjustments, error: adjustmentError }, { data: settlements, error: settlementError }] = await Promise.all([
     supabase
       .from("income_sources")
       .select("id, name")
@@ -89,10 +91,14 @@ export default async function TeamAccessPage({
       .eq("team_member_id", profile.team_member_id)
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase.from("team_payout_adjustments").select("*").eq("team_member_id", profile.team_member_id).order("date", { ascending: false }),
+    supabase.from("team_adjustment_settlements").select("*").eq("team_member_id", profile.team_member_id).order("settled_at"),
   ]);
 
   if (sourcesError) throw new Error(sourcesError.message);
   if (entriesError) throw new Error(entriesError.message);
+  if (adjustmentError) throw new Error(adjustmentError.message);
+  if (settlementError) throw new Error(settlementError.message);
 
   const clientOptions = sources ?? [];
   const history = entries ?? [];
@@ -170,6 +176,21 @@ export default async function TeamAccessPage({
               <CardTitle>Submission history</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
+              <section className="space-y-2">
+                <h2 className="font-semibold">Payout adjustments</h2>
+                {(adjustments ?? []).map((row) => {
+                  const remaining = remainingAdjustment(row, settlements ?? []);
+                  return <div key={row.id} className="space-y-1 rounded-md border border-sky-100 p-3">
+                    <p className="break-words font-medium">{row.reason}</p>
+                    <p className="text-sm text-muted-foreground">{row.date}</p>
+                    <p className="text-sm">Deduction <Money amountIdr={row.amount_idr} /></p>
+                    <p className="text-sm">{remaining > 0 ? "Outstanding" : "Settled"} <Money amountIdr={remaining} /></p>
+                    {(settlements ?? []).filter((item) => item.adjustment_id === row.id).map((item) =>
+                      <p key={item.id} className="text-xs text-muted-foreground">{item.settled_at} · {item.transfer_group_id ? "Deducted from payout" : "Repaid directly"} · <Money amountIdr={item.amount_idr} /></p>)}
+                  </div>;
+                })}
+                {!adjustments?.length ? <p className="text-sm text-muted-foreground">No adjustments.</p> : null}
+              </section>
               {sections.map((section) => {
                 const rows = history.filter((entry) => section.statuses.includes(entry.status));
                 return (

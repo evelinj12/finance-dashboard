@@ -19,6 +19,8 @@ export interface TeamTransferPerson {
   id: string;
   name: string;
   amountToSendIdr: number;
+  deductionsIdr: number;
+  transferredAmountIdr: number;
   status: TeamTransferStatus;
   transferredAt: string | null;
   notes: string | null;
@@ -159,6 +161,8 @@ export function TeamTransferStatusForm({
                   <div>
                     <p className="text-xs text-muted-foreground">Amount to send</p>
                     <Money amountIdr={person.amountToSendIdr} className="font-medium text-emerald-700" />
+                    <p className="mt-1 text-xs text-muted-foreground">Deductions <Money amountIdr={person.deductionsIdr} /></p>
+                    <p className="text-xs text-muted-foreground">Already transferred <Money amountIdr={person.transferredAmountIdr} /></p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Transferred at</p>

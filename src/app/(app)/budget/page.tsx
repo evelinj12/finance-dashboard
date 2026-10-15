@@ -75,6 +75,7 @@ export default async function BudgetPage({
       supabase
         .from("transactions")
         .select("category_id, direction, amount_idr")
+        .neq("source", "team_transfer")
         .gte("date", start)
         .lt("date", end),
       supabase.from("sinking_funds").select("name, monthly_amount, due_date, rolling, notes").order("due_date"),

@@ -1,6 +1,5 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange } from "@/lib/dates";
@@ -21,6 +20,7 @@ function isTeamTransferStatus(value: string): value is TeamTransferStatus {
 }
 
 function revalidateTeamPaths() {
+  revalidatePath("/team-access");
   for (const path of teamRevalidatePaths) {
     revalidatePath(path);
   }
@@ -317,14 +317,11 @@ async function upsertTeamPayoutTransaction(
   amountIdr: number,
   notes: string | null
 ) {
-  if (amountIdr <= 0) {
-    const { error } = await supabase
-      .from("transactions")
-      .delete()
-      .eq("source_team_transfer_group_id", transferGroupId);
-    if (error) throw new Error(error.message);
-    return;
-  }
+  const { data: deductions, error: deductionError } = await supabase
+    .from("team_adjustment_settlements").select("amount_idr").eq("transfer_group_id", transferGroupId);
+  if (deductionError) throw new Error(deductionError.message);
+  amountIdr -= (deductions ?? []).reduce((sum, row) => sum + Number(row.amount_idr), 0);
+  if (amountIdr < 0) throw new Error("Payout deductions exceed work earnings. Reopen the payout first.");
 
   const categoryId = await getTeamPayoutCategoryId(supabase);
   const { error } = await supabase.from("transactions").upsert(
@@ -354,10 +351,19 @@ async function upsertTeamPayoutTransaction(
 
 export async function addTeamWorkEntry(input: TeamWorkEntryInput) {
   const supabase = await createClient();
-  const entry = normalizeTeamWorkEntry(input);
+  const entry = normalizeTeamWorkEntry(input.status === "paid" ? { ...input, status: "owed" } : input);
   await assertFreelanceClientSource(supabase, entry.income_source_id);
-  const { error } = await supabase.from("team_work_entries").insert(entry);
+  const { data, error } = await supabase.from("team_work_entries").insert(entry).select("id").single();
   if (error) throw new Error(error.message);
+  if (input.status === "paid") {
+    const { error: payoutError } = await supabase.rpc("settle_team_payout", {
+      p_entry_ids: [data.id], p_paid_at: input.paid_at || input.date,
+    });
+    if (payoutError) {
+      revalidateTeamPaths();
+      throw new Error(`Entry saved as Owed; payout failed: ${payoutError.message}`);
+    }
+  }
   revalidateTeamPaths();
 }
 
@@ -371,11 +377,22 @@ export async function updateTeamWorkEntry(id: string, input: TeamWorkEntryInput)
 
   if (currentError) throw new Error(currentError.message);
 
-  const entry = normalizeTeamWorkEntry(input);
+  const createPayout = input.status === "paid" && !current?.transfer_group_id;
+  const entry = normalizeTeamWorkEntry(createPayout ? { ...input, status: "owed" } : input);
   await assertFreelanceClientSource(supabase, entry.income_source_id);
   const updatePayload = entry.status === "owed" ? { ...entry, transfer_group_id: null } : entry;
   const { error } = await supabase.from("team_work_entries").update(updatePayload).eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (createPayout) {
+    const { error: payoutError } = await supabase.rpc("settle_team_payout", {
+      p_entry_ids: [id], p_paid_at: input.paid_at || input.date,
+    });
+    if (payoutError) {
+      revalidateTeamPaths();
+      throw new Error(`Entry saved as Owed; payout failed: ${payoutError.message}`);
+    }
+  }
 
   if (current?.transfer_group_id) {
     await refreshTeamTransferGroupAmount(supabase, current.transfer_group_id);
@@ -639,46 +656,11 @@ export async function bulkUpdateTeamWorkStatus(input: TeamBulkStatusInput) {
 
   let updatedCount = 0;
   for (const group of groups.values()) {
-    const [start, end] = monthRange(group.month);
-    const { data: existingTransferredEntries, error: existingError } = await supabase
-      .from("team_work_entries")
-      .select("transfer_group_id")
-      .eq("team_member_id", group.teamMemberId)
-      .not("transfer_group_id", "is", null)
-      .gte("date", start)
-      .lt("date", end);
-
-    if (existingError) throw new Error(existingError.message);
-
-    const transferGroupId =
-      existingTransferredEntries
-        ?.map((entry) => entry.transfer_group_id)
-        .find((value): value is string => Boolean(value)) ?? randomUUID();
-
-    const { data, error } = await supabase
-      .from("team_work_entries")
-      .update({
-        status: "paid",
-        paid_at: paidAt,
-        transfer_group_id: transferGroupId,
-      })
-      .in("id", group.ids)
-      .neq("status", "paid")
-      .select("id");
-
+    const { error } = await supabase.rpc("settle_team_payout", {
+      p_entry_ids: group.ids, p_paid_at: paidAt,
+    });
     if (error) throw new Error(error.message);
-    updatedCount += data?.length ?? 0;
-
-    const { data: groupEntries, error: groupEntriesError } = await supabase
-      .from("team_work_entries")
-      .select("amount_idr")
-      .eq("transfer_group_id", transferGroupId);
-
-    if (groupEntriesError) throw new Error(groupEntriesError.message);
-
-    const amountIdr = (groupEntries ?? []).reduce((sum, entry) => sum + Number(entry.amount_idr), 0);
-    const teamMemberName = await getTeamMemberName(supabase, group.teamMemberId);
-    await upsertTeamPayoutTransaction(supabase, transferGroupId, teamMemberName, paidAt, amountIdr, null);
+    updatedCount += group.ids.length;
   }
 
   revalidateTeamPaths();
@@ -750,96 +732,42 @@ async function refreshTeamTransferGroupAmount(supabase: SupabaseServerClient, tr
 export async function saveTeamTransferStatus(input: TeamTransferInput) {
   const supabase = await createClient();
   const transfer = normalizeTeamTransfer(input);
-  const [start, end] = monthRange(transfer.month);
-  const { data: existingTransferredEntries, error: existingError } = await supabase
-    .from("team_work_entries")
-    .select("transfer_group_id, amount_idr")
-    .eq("team_member_id", transfer.team_member_id)
-    .not("transfer_group_id", "is", null)
-    .gte("date", start)
-    .lt("date", end);
-
-  if (existingError) throw new Error(existingError.message);
-
-  const existingTransferGroupIds = Array.from(
-    new Set(
-      (existingTransferredEntries ?? [])
-        .map((entry) => entry.transfer_group_id)
-        .filter((value): value is string => Boolean(value))
-    )
-  );
-
   if (transfer.status === "not_transferred") {
-    if (existingTransferGroupIds.length > 0) {
-      const { error: entriesError } = await supabase
-        .from("team_work_entries")
-        .update({ status: "owed", paid_at: null, transfer_group_id: null })
-        .in("transfer_group_id", existingTransferGroupIds);
-
-      if (entriesError) throw new Error(entriesError.message);
-
-      const { error: transactionError } = await supabase
-        .from("transactions")
-        .delete()
-        .in("source_team_transfer_group_id", existingTransferGroupIds);
-
-      if (transactionError) throw new Error(transactionError.message);
-    }
-
-    revalidateTeamPaths();
-    return;
+    const { error } = await supabase.rpc("reopen_team_payouts", {
+      p_member_id: transfer.team_member_id, p_month: transfer.month,
+    });
+    if (error) throw new Error(error.message);
+  } else {
+    const [start, end] = monthRange(transfer.month);
+    const { data: entries, error: readError } = await supabase.from("team_work_entries")
+      .select("id").eq("team_member_id", transfer.team_member_id)
+      .eq("status", "owed").gte("date", start).lt("date", end);
+    if (readError) throw new Error(readError.message);
+    if (!entries?.length) throw new Error("No owed Team entries found for this person and month.");
+    const { error } = await supabase.rpc("settle_team_payout", {
+      p_entry_ids: entries.map((entry) => entry.id),
+      p_paid_at: transfer.transferred_at!, p_notes: transfer.notes,
+    });
+    if (error) throw new Error(error.message);
   }
-
-  const transferredAt = transfer.transferred_at;
-  if (!transferredAt) throw new Error("Transferred date is required");
-
-  const { data: owedEntries, error: owedError } = await supabase
-    .from("team_work_entries")
-    .select("id, amount_idr")
-    .eq("team_member_id", transfer.team_member_id)
-    .eq("status", "owed")
-    .gte("date", start)
-    .lt("date", end);
-
-  if (owedError) throw new Error(owedError.message);
-
-  const newOwedAmountIdr = (owedEntries ?? []).reduce((sum, entry) => sum + Number(entry.amount_idr), 0);
-  const existingAmountIdr = (existingTransferredEntries ?? []).reduce(
-    (sum, entry) => sum + Number(entry.amount_idr),
-    0
-  );
-  const amountIdr = existingAmountIdr + newOwedAmountIdr;
-
-  if (amountIdr <= 0) {
-    throw new Error("No owed Team entries found for this person and month.");
-  }
-
-  const transferGroupId = existingTransferGroupIds[0] ?? randomUUID();
-  const owedEntryIds = (owedEntries ?? []).map((entry) => entry.id);
-  if (owedEntryIds.length > 0) {
-    const { error: entriesError } = await supabase
-      .from("team_work_entries")
-      .update({
-        status: "paid",
-        paid_at: transferredAt,
-        transfer_group_id: transferGroupId,
-      })
-      .in("id", owedEntryIds);
-
-    if (entriesError) throw new Error(entriesError.message);
-  }
-
-  const teamMemberName = await getTeamMemberName(supabase, transfer.team_member_id);
-  await upsertTeamPayoutTransaction(
-    supabase,
-    transferGroupId,
-    teamMemberName,
-    transferredAt,
-    amountIdr,
-    transfer.notes
-  );
-
   revalidateTeamPaths();
+  revalidatePath("/team-access");
+}
+
+export async function manageTeamAdjustment(input: {
+  operation: "add" | "repay" | "delete"; id: string; memberId: string;
+  date: string; amount: number; reason: string; expenseId: string | null; requestId: string;
+}) {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("manage_team_adjustment", {
+    p_operation: input.operation, p_id: input.id, p_member_id: input.memberId,
+    p_date: input.date, p_amount: input.amount, p_reason: input.reason,
+    p_expense_id: input.expenseId,
+    p_request_id: input.requestId,
+  });
+  if (error) throw new Error(error.message);
+  revalidateTeamPaths();
+  revalidatePath("/team-access");
 }
 
 export async function addTeamMember(input: TeamMemberInput) {

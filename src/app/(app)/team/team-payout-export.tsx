@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { formatMoney } from "@/lib/currency";
 import type { TeamWorkStatus } from "@/lib/supabase/types";
+import { previewDeductions, type PayoutAdjustment, type AdjustmentSettlement } from "@/lib/team-adjustments";
+import { todayStr } from "@/lib/dates";
 
 interface RelatedName {
   name: string;
@@ -23,6 +25,7 @@ interface TeamMemberOption {
 
 interface TeamPayoutEntry {
   id: string;
+  transfer_group_id?: string | null;
   team_member_id: string;
   income_source_id: string | null;
   date: string;
@@ -135,19 +138,23 @@ function createReportSvg({
   memberName,
   month,
   status,
+  deductions,
 }: {
   entries: TeamPayoutEntry[];
   memberName: string;
   month: string;
   status: ExportStatus;
+  deductions: { reason: string; date: string; amountIdr: number }[];
 }) {
   const totalHours = entries.reduce((sum, entry) => sum + (entry.hours ?? 0), 0);
   const totalAmountIdr = entries.reduce((sum, entry) => sum + entry.amount_idr, 0);
+  const deductionTotal = deductions.reduce((sum, row) => sum + row.amountIdr, 0);
+  const adjustmentHeight = deductions.length ? 160 + deductions.length * 70 : 0;
   const clientGroups = groupByClient(entries);
   const rowHeight = 110;
   const summaryHeight = Math.max(1, clientGroups.length) * 116 + 90;
   const detailsHeight = Math.max(1, entries.length) * rowHeight + 110;
-  const height = Math.max(1180, 72 + 190 + 48 + 180 + 56 + summaryHeight + 56 + detailsHeight + 120);
+  const height = Math.max(1180, 72 + 190 + 48 + 180 + 56 + summaryHeight + 56 + detailsHeight + adjustmentHeight + 120);
   const generatedAt = new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeZone: "Asia/Jakarta",
@@ -155,7 +162,19 @@ function createReportSvg({
   const width = 1080;
   const cardHeight = height - 144;
   const summaryY = 540;
-  const detailsY = summaryY + summaryHeight + 56;
+  const adjustmentY = summaryY + summaryHeight + 56;
+  const detailsY = adjustmentY + adjustmentHeight;
+  const adjustmentBlock = deductions.length ? `
+    <g transform="translate(120 ${adjustmentY})">
+      ${textLine(0, 0, "Payout deductions", "section")}
+      ${deductions.map((row, index) => `
+        ${textLine(0, 50 + index * 70, wrapText(row.reason, 48, 1)[0], "body")}
+        ${textLine(0, 78 + index * 70, row.date, "small")}
+        ${textLine(840, 50 + index * 70, "-" + formatMoney(row.amountIdr, "IDR"), "body", "end")}
+      `).join("")}
+      ${textLine(0, 65 + deductions.length * 70, "Work earnings", "body")}
+      ${textLine(840, 65 + deductions.length * 70, formatMoney(totalAmountIdr, "IDR"), "body", "end")}
+    </g>` : "";
 
   const summaryBlocks =
     clientGroups.length > 0
@@ -228,7 +247,7 @@ function createReportSvg({
       <rect x="72" y="72" width="936" height="${cardHeight}" rx="34" fill="#FFFFFF" filter="url(#shadow)"/>
       <g class="font">
         <rect x="72" y="72" width="936" height="190" rx="34" fill="#F3FBFF"/>
-        ${textLine(120, 160, "Team payout report", "title")}
+        ${textLine(120, 160, "Team payout report", "section")}
         ${textLine(120, 208, "Transfer summary for approved work", "muted")}
         ${textLine(840, 142, "REPORT MONTH", "label", "end")}
         ${textLine(840, 180, formatMonth(month), "body", "end")}
@@ -239,8 +258,8 @@ function createReportSvg({
           ${textLine(36, 52, "TEAM MEMBER", "label")}
           ${textLine(36, 94, memberName, "section")}
           ${textLine(36, 142, statusLabels[status], "muted")}
-          ${textLine(804, 52, "TOTAL AMOUNT", "label", "end")}
-          ${textLine(804, 102, formatMoney(totalAmountIdr, "IDR"), "amount", "end")}
+          ${textLine(804, 52, "AMOUNT TO TRANSFER", "label", "end")}
+          ${textLine(804, 102, formatMoney(totalAmountIdr - deductionTotal, "IDR"), "amount", "end")}
           ${textLine(804, 142, `Billing duration ${formatDuration(totalHours)}`, "muted", "end")}
         </g>
 
@@ -249,6 +268,7 @@ function createReportSvg({
           ${summaryBlocks}
         </g>
 
+        ${adjustmentBlock}
         <g transform="translate(120 ${detailsY})">
           ${textLine(0, 0, "Entry details", "section")}
           <rect x="0" y="36" width="840" height="72" rx="18" fill="#EFF8FD"/>
@@ -351,10 +371,14 @@ export function TeamPayoutExport({
   entries,
   members,
   selectedMonth,
+  adjustments,
+  settlements,
 }: {
   entries: TeamPayoutEntry[];
   members: TeamMemberOption[];
   selectedMonth: string;
+  adjustments: PayoutAdjustment[];
+  settlements: AdjustmentSettlement[];
 }) {
   const membersWithEntries = useMemo(
     () => members.filter((member) => entries.some((entry) => entry.team_member_id === member.id)),
@@ -373,6 +397,15 @@ export function TeamPayoutExport({
   }, [entries, memberId, status]);
   const totalHours = reportEntries.reduce((sum, entry) => sum + (entry.hours ?? 0), 0);
   const totalAmountIdr = reportEntries.reduce((sum, entry) => sum + entry.amount_idr, 0);
+  const paidGroups = new Set(reportEntries.filter((row) => row.status === "paid").map((row) => row.transfer_group_id));
+  const paidDeductions = settlements.filter((row) => row.transfer_group_id && paidGroups.has(row.transfer_group_id)).map((row) => ({
+    reason: adjustments.find((adjustment) => adjustment.id === row.adjustment_id)?.reason ?? "Payout deduction",
+    date: row.settled_at, amountIdr: Number(row.amount_idr),
+  }));
+  const owedAmount = reportEntries.filter((row) => row.status === "owed").reduce((sum, row) => sum + row.amount_idr, 0);
+  const pendingDeductions = previewDeductions(adjustments, settlements, memberId, owedAmount, todayStr());
+  const deductions = [...paidDeductions, ...pendingDeductions];
+  const deductionTotal = deductions.reduce((sum, row) => sum + row.amountIdr, 0);
   const filenameBase = `team-payout-report-${fileSafe(memberName)}-${selectedMonth}-${status}`;
 
   async function exportReport(format: ExportFormat) {
@@ -387,7 +420,7 @@ export function TeamPayoutExport({
 
     setExporting(format);
     try {
-      const svg = createReportSvg({ entries: reportEntries, memberName, month: selectedMonth, status });
+      const svg = createReportSvg({ entries: reportEntries, memberName, month: selectedMonth, status, deductions });
       const canvas = await svgToCanvas(svg, format === "image" ? 2 : 1.5);
 
       if (format === "image") {
@@ -475,9 +508,13 @@ export function TeamPayoutExport({
             <div className="text-lg font-semibold">{formatDuration(totalHours)}</div>
           </div>
           <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total amount</div>
-            <div className="text-lg font-semibold text-emerald-700">{formatMoney(totalAmountIdr, "IDR")}</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amount to transfer</div>
+            <div className="text-lg font-semibold text-emerald-700">{formatMoney(totalAmountIdr - deductionTotal, "IDR")}</div>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+          <span>Work earnings {formatMoney(totalAmountIdr, "IDR")}</span>
+          <span>Deductions {formatMoney(deductionTotal, "IDR")}</span>
         </div>
         <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
           <Download className="size-4" />

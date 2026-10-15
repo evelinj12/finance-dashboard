@@ -9,6 +9,9 @@ import { MonthPicker } from "@/components/month-picker";
 import { createClient } from "@/lib/supabase/server";
 import { monthRange, monthStart } from "@/lib/dates";
 import { calculateClientNet } from "@/lib/finance/team-net";
+import { previewDeductions } from "@/lib/team-adjustments";
+import { todayStr } from "@/lib/dates";
+import { TeamAdjustments } from "./team-adjustments";
 import { DeleteTeamMemberButton } from "./delete-team-member-button";
 import { TeamMemberDialog } from "./team-member-dialog";
 import { TeamPayoutExport } from "./team-payout-export";
@@ -48,6 +51,9 @@ export default async function TeamPage({
     { data: rates, error: ratesError },
     { data: incomeTx, error: incomeTxError },
     { data: accessRows, error: accessRowsError },
+    { data: adjustments, error: adjustmentsError },
+    { data: settlements, error: settlementsError },
+    { data: expenses, error: expensesError },
   ] = await Promise.all([
     supabase.from("team_members").select("id, name, active, default_currency, notes").order("name"),
     supabase
@@ -74,6 +80,12 @@ export default async function TeamPage({
       .gte("date", start)
       .lt("date", end),
     supabase.from("team_member_access").select("team_member_id, email, active, user_id"),
+    supabase.from("team_payout_adjustments").select("*").order("date", { ascending: false }),
+    supabase.from("team_adjustment_settlements").select("*").order("settled_at"),
+    supabase.from("transactions").select("id, date, notes, amount_idr, category:categories!inner(tag)")
+      .eq("direction", "out").in("category.tag", ["fixed", "spent"])
+      .not("source", "in", "(team_transfer,team_reimbursement,income_auto)")
+      .gte("date", start).lt("date", end).order("date", { ascending: false }),
   ]);
 
   if (membersError) throw new Error(`Failed to load team members: ${membersError.message}`);
@@ -82,6 +94,11 @@ export default async function TeamPage({
   if (ratesError) throw new Error(`Failed to load Team rates: ${ratesError.message}`);
   if (incomeTxError) throw new Error(`Failed to load client income transactions: ${incomeTxError.message}`);
   if (accessRowsError) throw new Error(`Failed to load team access: ${accessRowsError.message}`);
+  if (adjustmentsError) throw new Error(adjustmentsError.message);
+  if (settlementsError) throw new Error(settlementsError.message);
+  if (expensesError) throw new Error(expensesError.message);
+  const adjustmentRows = adjustments ?? [];
+  const settlementRows = settlements ?? [];
 
   const accessByMemberId = new Map((accessRows ?? []).map((access) => [access.team_member_id, access]));
   const memberList = (members ?? []).map((member) => {
@@ -213,8 +230,13 @@ export default async function TeamPage({
     return {
       id: member.id,
       name: member.name,
-      amountToSendIdr: transferredAmountIdr + pendingAmountIdr,
-      status: transferredAmountIdr > 0 ? "transferred" : "not_transferred",
+      amountToSendIdr: Math.max(0, pendingAmountIdr - previewDeductions(
+        adjustmentRows, settlementRows, member.id, pendingAmountIdr, todayStr()
+      ).reduce((sum, row) => sum + row.amountIdr, 0)),
+      deductionsIdr: previewDeductions(adjustmentRows, settlementRows, member.id, pendingAmountIdr, todayStr())
+        .reduce((sum, row) => sum + row.amountIdr, 0),
+      transferredAmountIdr,
+      status: pendingAmountIdr === 0 && memberTransferGroupIds.length > 0 ? "transferred" : "not_transferred",
       transferredAt: latestTransferDate ?? latestPaidDate ?? null,
       notes: latestTransferNotes,
     };
@@ -281,9 +303,12 @@ export default async function TeamPage({
         </Card>
       </div>
 
-      <TeamTransferStatusForm selectedMonth={month} people={transferPeople} />
+      <TeamTransferStatusForm key={`${month}:${owedTotal}:${paidTotal}`} selectedMonth={month} people={transferPeople} />
 
-      <TeamPayoutExport entries={teamEntries} members={memberList} selectedMonth={month} />
+      <TeamAdjustments members={memberList} adjustments={adjustmentRows} settlements={settlementRows} expenses={expenses ?? []} />
+
+      <TeamPayoutExport key={month} entries={teamEntries} members={memberList} selectedMonth={month}
+        adjustments={adjustmentRows} settlements={settlementRows} />
 
       <Card>
         <CardHeader>

@@ -244,8 +244,8 @@ export default async function OverviewPage({
         .limit(4),
       supabase
         .from("transactions")
-        .select("id, amount_idr, category:categories(name, tag, sort_order)")
-        .eq("direction", "out")
+        .select("id, amount_idr, direction, category:categories(name, tag, sort_order)")
+        .neq("source", "team_transfer")
         .gte("date", selectedMonthStart)
         .lt("date", selectedNextMonthStart),
     ]);
@@ -317,7 +317,7 @@ export default async function OverviewPage({
       sortOrder: category?.sort_order ?? 999,
     };
 
-    existing.amountIdr += transaction.amount_idr ?? 0;
+    existing.amountIdr += (transaction.direction === "out" ? 1 : -1) * (transaction.amount_idr ?? 0);
     spendingByCategoryMap.set(name, existing);
   }
 

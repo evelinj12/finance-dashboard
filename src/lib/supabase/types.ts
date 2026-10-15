@@ -13,7 +13,7 @@ export type Json =
 export type CategoryTag = "income" | "sinking_fund" | "fixed" | "spent";
 export type TxDirection = "in" | "out";
 export type EntrySource = "manual" | "import";
-export type TransactionSource = EntrySource | "auto_monthly" | "income_auto" | "team_transfer";
+export type TransactionSource = EntrySource | "auto_monthly" | "income_auto" | "team_transfer" | "team_reimbursement";
 export type GeneratedTransactionSource = "income_transaction" | "team_transfer";
 export type RecurringTransactionType = "sinking_fund" | "fixed_transaction";
 export type IncomeSourceType = "freelance_client" | "digital_product" | "other";
@@ -30,6 +30,24 @@ export type GoalType = "net_worth" | "income" | "savings";
 export interface Database {
   public: {
     Tables: {
+      team_payout_adjustments: {
+        Row: {
+          id: string; team_member_id: string; date: string; reason: string;
+          amount_idr: number; expense_transaction_id: string | null; created_at: string;
+        };
+        Insert: { id?: string; team_member_id: string; date: string; reason: string; amount_idr: number; expense_transaction_id?: string | null };
+        Update: Partial<Database["public"]["Tables"]["team_payout_adjustments"]["Insert"]>;
+        Relationships: [];
+      };
+      team_adjustment_settlements: {
+        Row: {
+          id: string; adjustment_id: string; team_member_id: string; amount_idr: number;
+          settled_at: string; transfer_group_id: string | null; created_at: string;
+        };
+        Insert: { adjustment_id: string; team_member_id: string; amount_idr: number; settled_at: string; transfer_group_id?: string | null };
+        Update: Partial<Database["public"]["Tables"]["team_adjustment_settlements"]["Insert"]>;
+        Relationships: [];
+      };
       categories: {
         Row: {
           id: string;
@@ -736,6 +754,16 @@ export interface Database {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      manage_team_adjustment: {
+        Args: { p_operation: string; p_id: string; p_member_id: string; p_date: string; p_amount: number; p_reason: string; p_expense_id: string | null; p_request_id?: string };
+        Returns: undefined;
+      };
+      settle_team_payout: {
+        Args: { p_entry_ids: string[]; p_paid_at: string; p_notes?: string | null };
+        Returns: string;
+      };
+      reopen_team_payouts: { Args: { p_member_id: string; p_month: string }; Returns: undefined };
+    };
   };
 }

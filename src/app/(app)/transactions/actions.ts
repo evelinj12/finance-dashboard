@@ -126,6 +126,11 @@ export async function addTransaction(input: TransactionInput) {
 export async function updateTransaction(id: string, input: TransactionInput) {
   const normalizedInput = normalizeTransactionInput(input);
   const supabase = await createClient();
+  const { data: existing, error: existingError } = await supabase.from("transactions").select("source").eq("id", id).single();
+  if (existingError) throw new Error(existingError.message);
+  if (existing.source === "team_transfer" || existing.source === "team_reimbursement") {
+    throw new Error("Manage this payout or adjustment from Team.");
+  }
   const { error } = await supabase.from("transactions").update(normalizedInput).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/transactions");
@@ -144,6 +149,10 @@ export async function deleteTransaction(id: string) {
     .maybeSingle<ExistingRecurringTransaction>();
 
   if (readError) throw new Error(readError.message);
+
+  if (transaction?.source === "team_transfer" || transaction?.source === "team_reimbursement") {
+    throw new Error("Manage this payout or adjustment from Team.");
+  }
 
   const { error } = await supabase.from("transactions").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -173,18 +182,6 @@ export async function deleteTransaction(id: string) {
     if (disableError) throw new Error(disableError.message);
   }
 
-  if (transaction?.source === "team_transfer" && transaction.source_team_transfer_group_id) {
-    const { error: entriesError } = await supabase
-      .from("team_work_entries")
-      .update({
-        status: "owed",
-        paid_at: null,
-        transfer_group_id: null,
-      })
-      .eq("transfer_group_id", transaction.source_team_transfer_group_id);
-
-    if (entriesError) throw new Error(entriesError.message);
-  }
 
   revalidatePath("/transactions");
   revalidatePath("/budget");

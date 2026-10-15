@@ -54,6 +54,7 @@ const sourceLabels: Record<string, string> = {
   auto_monthly: "Auto monthly",
   income_auto: "Paid income",
   team_transfer: "Team transfer",
+  team_reimbursement: "Reimbursable share",
 };
 
 type SourceFilter = TransactionSource | "all";
@@ -65,6 +66,7 @@ const sourceValues = new Set<SourceFilter>([
   "auto_monthly",
   "income_auto",
   "team_transfer",
+  "team_reimbursement",
 ]);
 const tagValues = new Set<string>(["all", "sinking_fund", "fixed", "spent", "income"]);
 const txSortValues = new Set<string>(["tag", "date_desc", "date_asc", "amount_desc", "amount_asc", "category"]);
@@ -451,7 +453,9 @@ export default async function TransactionsPage({
                   </div>
 
                   <div className="flex justify-end gap-1 border-t border-sky-100 pt-2">
-                    <TransactionDialog
+                    {t.source === "team_transfer" || t.source === "team_reimbursement" ? (
+                      <Link href={`/team?month=${month}`} className="px-2 py-1 text-sm font-medium text-primary">Manage in Team</Link>
+                    ) : <><TransactionDialog
                       categories={categoryList}
                       transaction={t}
                       trigger={
@@ -460,7 +464,7 @@ export default async function TransactionsPage({
                         </Button>
                       }
                     />
-                    <DeleteTransactionButton id={t.id} />
+                    <DeleteTransactionButton id={t.id} /></>}
                   </div>
                 </CardContent>
               </Card>
@@ -582,7 +586,9 @@ export default async function TransactionsPage({
                     </TableCell>
                     <TableCell className="sticky right-0 z-10 bg-white/95 p-2 shadow-[-10px_0_16px_-16px_rgba(15,47,85,0.45)]">
                       <div className="flex items-center justify-end gap-1">
-                        <TransactionDialog
+                        {t.source === "team_transfer" || t.source === "team_reimbursement" ? (
+                          <Link href={`/team?month=${month}`} className="px-2 py-1 text-sm font-medium text-primary">Team</Link>
+                        ) : <><TransactionDialog
                           categories={categoryList}
                           transaction={t}
                           trigger={
@@ -591,7 +597,7 @@ export default async function TransactionsPage({
                             </Button>
                           }
                         />
-                        <DeleteTransactionButton id={t.id} />
+                        <DeleteTransactionButton id={t.id} /></>}
                       </div>
                     </TableCell>
                   </TableRow>,
